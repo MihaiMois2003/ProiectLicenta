@@ -4,6 +4,7 @@ using System.Collections.Generic;
 public enum CombatState
 {
     Idle,        // nimeni nu a vazut inamicul
+    Engaging,  // formatia se pune in pozitie, nimeni nu trage
     Combat       // inamic detectat, formatie activa
 }
 
@@ -29,6 +30,8 @@ public class TacticalBlackboard : MonoBehaviour
     public Vector3 sniperPosition1 = new Vector3(-20, 1, -20);
     public Vector3 sniperPosition2 = new Vector3(-20, 1, 20);
 
+    
+
     void Awake()
     {
         if (Instance == null) Instance = this;
@@ -37,13 +40,32 @@ public class TacticalBlackboard : MonoBehaviour
 
     void Update()
     {
-        // Actualizeaza continuu pozitia inamicului principal
-        if (mainEnemy != null && enemySpotted)
-            lastKnownEnemyPosition = mainEnemy.position;
+        // Daca liderul a murit, promoveaza un Scout ca lider nou
+        if (combatState == CombatState.Combat)
+        {
+            AgentBehaviorTree leader = GetLeader();
+            if (leader == null || leader.GetComponent<HealthSystem>().isDead)
+                PromoteNewLeader();
+        }
 
-        // Daca a trecut 10 secunde fara confirmare, resetam
         if (enemySpotted && Time.time - timeEnemyWasSpotted > 10f)
             ClearEnemyInfo();
+    }
+
+    void PromoteNewLeader()
+    {
+        foreach (AgentBehaviorTree agent in allAgents)
+        {
+            HealthSystem hs = agent.GetComponent<HealthSystem>();
+            if (hs == null || hs.isDead) continue;
+            if (agent.role == AgentRole.Leader) continue;
+
+            // Primul agent viu devine Leader
+            agent.role = AgentRole.Leader;
+            agent.RebuildTree();
+            Debug.Log($"[Blackboard] {agent.agentID} promovat ca Leader nou!");
+            return;
+        }
     }
 
     public void RegisterAgent(AgentBehaviorTree agent)
@@ -57,8 +79,7 @@ public class TacticalBlackboard : MonoBehaviour
         lastKnownEnemyPosition = position;
         enemySpotted = true;
         timeEnemyWasSpotted = Time.time;
-        combatState = CombatState.Combat;
-        Debug.Log($"[Blackboard] Inamic raportat de {agentID} la {position}");
+        combatState = CombatState.Engaging;
     }
 
     public void ClearEnemyInfo()

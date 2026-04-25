@@ -12,9 +12,9 @@ TagManager:
   - Water
   - UI
   - Ally
-  - Enemy
+  - MainEnemy
   - Obstacle
-  - 
+  - SecondaryEnemy
   - 
   - 
   - 

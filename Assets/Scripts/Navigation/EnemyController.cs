@@ -26,7 +26,6 @@ public class EnemyController : MonoBehaviour
         blackboard = TacticalBlackboard.Instance;
         secondaryEnemies = FindObjectsOfType<SecondaryEnemyController>();
 
-        // Punctul de eliberare = mijlocul dintre cei 2 inamici secundari
         if (secondaryEnemies.Length >= 2)
         {
             liberationPoint = (secondaryEnemies[0].transform.position +
@@ -42,64 +41,44 @@ public class EnemyController : MonoBehaviour
     void Update()
     {
         if (blackboard != null && blackboard.combatState == CombatState.Combat)
-        {
-            if (!enemiesLiberated)
-                MoveToLiberate();
-            else
-                Flee();
-        }
+            Flee();
         else
-        {
             Patrol();
-        }
-    }
-
-    void MoveToLiberate()
-    {
-        navAgent.speed = fleeSpeed;
-        navAgent.SetDestination(liberationPoint);
-
-        // Verifica daca a ajuns la punctul de eliberare
-        float dist = Vector3.Distance(transform.position, liberationPoint);
-        if (dist <= liberationDistance)
-        {
-            LiberateEnemies();
-        }
-    }
-
-    void LiberateEnemies()
-    {
-        enemiesLiberated = true;
-        foreach (var enemy in secondaryEnemies)
-            enemy.Liberate();
-
-        Debug.Log("[Enemy] Inamici secundari eliberati!");
     }
 
     void Flee()
     {
         navAgent.speed = fleeSpeed;
 
+        if (!navAgent.pathPending &&
+            navAgent.remainingDistance <= navAgent.stoppingDistance)
+            SetNewFleeTarget();
+    }
+
+    void SetNewFleeTarget()
+    {
         AgentBehaviorTree leader = blackboard?.GetLeader();
         if (leader == null) return;
 
-        // Fuge in directia opusa leaderului
-        Vector3 fleeDirection = (transform.position -
-            leader.transform.position).normalized;
-
-        // Incearca distante din ce in ce mai mici pana gaseste punct valid
-        for (int i = 10; i >= 2; i--)
+        for (int i = 0; i < 15; i++)
         {
-            Vector3 fleeTarget = transform.position + fleeDirection * i;
+            Vector3 randomPoint = new Vector3(
+                Random.Range(-20f, 20f),
+                0,
+                Random.Range(-20f, 20f));
+
+            float distFromLeader = Vector3.Distance(
+                randomPoint, leader.transform.position);
+            if (distFromLeader < 10f) continue;
+
             NavMeshHit hit;
-            if (NavMesh.SamplePosition(fleeTarget, out hit, 3f, NavMesh.AllAreas))
+            if (NavMesh.SamplePosition(randomPoint, out hit, 3f, NavMesh.AllAreas))
             {
                 navAgent.SetDestination(hit.position);
                 return;
             }
         }
 
-        // Fallback - punct random valid pe harta
         SetNewPatrolTarget();
     }
 
@@ -128,5 +107,19 @@ public class EnemyController : MonoBehaviour
                 return;
             }
         }
+    }
+
+    public void TriggerLiberation()
+    {
+        if (enemiesLiberated) return;
+        enemiesLiberated = true;
+        foreach (var enemy in secondaryEnemies)
+            enemy.Liberate();
+    }
+
+    public float GetHPPercentage()
+    {
+        HealthSystem hs = GetComponent<HealthSystem>();
+        return hs != null ? hs.GetHPPercentage() : 1f;
     }
 }

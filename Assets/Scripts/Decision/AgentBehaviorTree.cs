@@ -87,17 +87,47 @@ public class AgentBehaviorTree : MonoBehaviour
         }
     }
 
+    public void RebuildTree()
+    {
+        BuildBehaviorTree();
+    }
+
     // ── LEADER ─────────────────────────────────────
     void BuildLeaderTree()
     {
         behaviorTree = new BTSelector(
 
-            // Combat → urmareste inamicul
+            // Combat activ → urmareste inamicul
             new BTSequence(
                 new BTCondition(() => blackboard != null &&
                     blackboard.combatState == CombatState.Combat),
                 new BTAction(() => {
-                    agentController.MoveTo(blackboard.lastKnownEnemyPosition);
+                    if (blackboard.mainEnemy != null)
+                        agentController.MoveTo(blackboard.mainEnemy.position);
+                    return NodeState.Running;
+                })
+            ),
+
+            // Engaging → Leader merge spre inamic
+            // Cand ajunge la 8 unitati → porneste Combat
+            new BTSequence(
+                new BTCondition(() => blackboard != null &&
+                    blackboard.combatState == CombatState.Engaging),
+                new BTAction(() => {
+                    if (blackboard.mainEnemy == null) return NodeState.Failure;
+
+                    float dist = Vector3.Distance(
+                        transform.position, blackboard.mainEnemy.position);
+
+                    if (dist <= 8f)
+                    {
+                        // Leader a ajuns la 8 unitati → porneste lupta
+                        blackboard.combatState = CombatState.Combat;
+                        return NodeState.Running;
+                    }
+
+                    // Inca nu a ajuns → continua sa mearga
+                    agentController.MoveTo(blackboard.mainEnemy.position);
                     return NodeState.Running;
                 })
             ),
