@@ -1,126 +1,97 @@
 using UnityEngine;
 using System.Collections.Generic;
 
+public enum CombatState
+{
+    Idle,        // nimeni nu a vazut inamicul
+    Combat       // inamic detectat, formatie activa
+}
+
 public class TacticalBlackboard : MonoBehaviour
 {
-    // Singleton - orice agent il poate accesa
     public static TacticalBlackboard Instance;
 
-    [Header("Informatii tactice partajate")]
+    [Header("Combat State")]
+    public CombatState combatState = CombatState.Idle;
+
+    [Header("Main Enemy")]
+    public Transform mainEnemy;
+
+    [Header("Enemy Info")]
     public Vector3 lastKnownEnemyPosition;
     public bool enemySpotted = false;
-    public string spottedByAgentID = "";
     public float timeEnemyWasSpotted = -1f;
 
-    [Header("Cereri de ajutor")]
-    public List<string> helpRequests = new List<string>();
-
-    [Header("Agenti inregistrati")]
+    [Header("Agenti")]
     public List<AgentBehaviorTree> allAgents = new List<AgentBehaviorTree>();
+
+    [Header("Sniper Positions")]
+    public Vector3 sniperPosition1 = new Vector3(-20, 1, -20);
+    public Vector3 sniperPosition2 = new Vector3(-20, 1, 20);
 
     void Awake()
     {
-        if (Instance == null)
-            Instance = this;
-        else
-            Destroy(gameObject);
+        if (Instance == null) Instance = this;
+        else Destroy(gameObject);
     }
 
     void Update()
     {
-        // Daca a trecut mai mult de 10 secunde de cand s-a vazut inamicul, resetam
+        // Actualizeaza continuu pozitia inamicului principal
+        if (mainEnemy != null && enemySpotted)
+            lastKnownEnemyPosition = mainEnemy.position;
+
+        // Daca a trecut 10 secunde fara confirmare, resetam
         if (enemySpotted && Time.time - timeEnemyWasSpotted > 10f)
-        {
             ClearEnemyInfo();
-        }
     }
 
-    // Agent raporteaza inamic
-    public void ReportEnemy(Vector3 position, string agentID)
-    {
-        lastKnownEnemyPosition = position;
-        enemySpotted = true;
-        spottedByAgentID = agentID;
-        timeEnemyWasSpotted = Time.time;
-
-        Debug.Log($"[Blackboard] Inamic raportat de {agentID} la {position}");
-    }
-
-    // Agent cere ajutor
-    public void RequestHelp(string agentID)
-    {
-        if (!helpRequests.Contains(agentID))
-        {
-            helpRequests.Add(agentID);
-            Debug.Log($"[Blackboard] {agentID} cere ajutor!");
-        }
-    }
-
-    // Agent rezolva cererea de ajutor
-    public void ResolveHelp(string agentID)
-    {
-        helpRequests.Remove(agentID);
-    }
-
-    // Reseteaza informatiile despre inamic dupa un timp
-    public void ClearEnemyInfo()
-    {
-        enemySpotted = false;
-        spottedByAgentID = "";
-        Debug.Log("[Blackboard] Informatii despre inamic resetate");
-    }
-
-    // Inregistreaza un agent nou
     public void RegisterAgent(AgentBehaviorTree agent)
     {
         if (!allAgents.Contains(agent))
             allAgents.Add(agent);
     }
 
-    // Returneaza cel mai apropiat agent de o pozitie
-    public AgentBehaviorTree GetNearestAgentTo(Vector3 position, string excludeID)
+    public void ReportEnemy(Vector3 position, string agentID)
     {
-        AgentBehaviorTree nearest = null;
-        float minDist = Mathf.Infinity;
+        lastKnownEnemyPosition = position;
+        enemySpotted = true;
+        timeEnemyWasSpotted = Time.time;
+        combatState = CombatState.Combat;
+        Debug.Log($"[Blackboard] Inamic raportat de {agentID} la {position}");
+    }
 
-        foreach (AgentBehaviorTree agent in allAgents)
-        {
-            if (agent.GetAgentID() == excludeID) continue;
-
-            float dist = Vector3.Distance(agent.transform.position, position);
-            if (dist < minDist)
-            {
-                minDist = dist;
-                nearest = agent;
-            }
-        }
-        return nearest;
+    public void ClearEnemyInfo()
+    {
+        enemySpotted = false;
+        combatState = CombatState.Idle;
+        Debug.Log("[Blackboard] Inamic pierdut, revenire la Idle");
     }
 
     public AgentBehaviorTree GetLeader()
     {
-        foreach (AgentBehaviorTree agent in allAgents)
-        {
+        foreach (var agent in allAgents)
             if (agent.role == AgentRole.Leader) return agent;
-        }
         return null;
     }
 
-    // Cere tuturor agentilor sa se indrepte spre inamic
-    public void RequestAllAgentsToEngage(Vector3 enemyPosition)
-    {
-        lastKnownEnemyPosition = enemyPosition;
-        enemySpotted = true;
-        Debug.Log($"[Blackboard] Leader coordoneaza atac la {enemyPosition}");
-    }
-
-    // Returneaza un agent dupa ID
     public AgentBehaviorTree GetAgentByID(string id)
     {
-        foreach (AgentBehaviorTree agent in allAgents)
-        {
-            if (agent.GetAgentID() == id) return agent;
-        }
+        foreach (var agent in allAgents)
+            if (agent.agentID == id) return agent;
         return null;
+    }
+
+    public List<string> helpRequests = new List<string>();
+
+    public void RequestHelp(string agentID)
+    {
+        if (!helpRequests.Contains(agentID))
+            helpRequests.Add(agentID);
+    }
+
+    public void ResolveHelp(string agentID)
+    {
+        helpRequests.Remove(agentID);
     }
 }

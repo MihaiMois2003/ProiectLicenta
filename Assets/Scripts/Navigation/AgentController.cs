@@ -40,4 +40,9 @@ public class AgentController : MonoBehaviour
             return true;
         return false;
     }
+
+    public void SetSpeed(float speed)
+    {
+        navAgent.speed = speed;
+    }
 }

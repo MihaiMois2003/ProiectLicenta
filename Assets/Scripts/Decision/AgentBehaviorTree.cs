@@ -6,13 +6,18 @@ public class AgentBehaviorTree : MonoBehaviour
     public AgentRole role = AgentRole.Scout;
     public string agentID;
 
-    [Header("Settings")]
-    public float attackRange = 3f;
-    public float sniperRange = 15f;
-    public float patrolRadius = 8f;
-
     [Header("Formation")]
-    public int formationIndex = 0;
+    public int formationRow = 0;
+    public int formationIndexInRow = 0;
+    public int formationTotalInRow = 1;
+
+    [Header("Speed Settings")]
+    public float normalSpeed = 3.5f;
+    public float catchUpSpeed = 6f;
+    public float catchUpDistance = 3f;
+
+    [Header("Patrol Settings")]
+    public float patrolRadius = 8f;
 
     private BTNode behaviorTree;
     private AgentController agentController;
@@ -20,6 +25,8 @@ public class AgentBehaviorTree : MonoBehaviour
     private TacticalBlackboard blackboard;
     private Vector3 startPosition;
     private Vector3 patrolTarget;
+
+    public string agentIDPublic => agentID;
 
     void Awake()
     {
@@ -42,6 +49,31 @@ public class AgentBehaviorTree : MonoBehaviour
     void Update()
     {
         behaviorTree?.Evaluate();
+        UpdateSpeed();
+    }
+
+    void UpdateSpeed()
+    {
+        if (blackboard == null) return;
+
+        AgentBehaviorTree leader = blackboard.GetLeader();
+        if (leader == null || role == AgentRole.Leader) return;
+
+        // Daca e departe de pozitia din formatie → viteza marita
+        Vector3 formationPos = FormationManager.Instance.GetFormationPosition(
+            leader.transform.position,
+            leader.transform.rotation,
+            formationRow,
+            formationIndexInRow,
+            formationTotalInRow);
+
+        float distToFormation = Vector3.Distance(
+            transform.position, formationPos);
+
+        if (distToFormation > catchUpDistance)
+            agentController.SetSpeed(catchUpSpeed);
+        else
+            agentController.SetSpeed(normalSpeed);
     }
 
     void BuildBehaviorTree()
@@ -55,142 +87,105 @@ public class AgentBehaviorTree : MonoBehaviour
         }
     }
 
-    // ── LEADER ─────────────────────────────────────────
-    // Patruleaza, raporteaza inamic, se opreste si coordoneaza
+    // ── LEADER ─────────────────────────────────────
     void BuildLeaderTree()
     {
         behaviorTree = new BTSelector(
 
-            // 1. Vede inamic → se opreste si coordoneaza
+            // Combat → urmareste inamicul
             new BTSequence(
-                new BTCondition(() => perception.CanSeeEnemies()),
+                new BTCondition(() => blackboard != null &&
+                    blackboard.combatState == CombatState.Combat),
                 new BTAction(() => {
-                    Transform enemy = perception.GetNearestEnemy();
-                    if (enemy == null) return NodeState.Failure;
-                    blackboard?.ReportEnemy(enemy.position, agentID);
-                    blackboard?.RequestAllAgentsToEngage(enemy.position);
-                    agentController.Stop(); // Leader-ul se opreste
+                    agentController.MoveTo(blackboard.lastKnownEnemyPosition);
                     return NodeState.Running;
                 })
             ),
 
-            // 2. Patruleaza
-            new BTAction(Patrol)
+            // Idle → sta pe loc
+            new BTAction(() => {
+                agentController.Stop();
+                return NodeState.Running;
+            })
         );
     }
 
-    // ── SCOUT ──────────────────────────────────────────
-    // Merge in fata, raporteaza si urmareste inamicul
+    // ── SCOUT ───────────────────────────────────────
     void BuildScoutTree()
     {
         behaviorTree = new BTSelector(
 
-            // 1. Vede inamic → raporteaza si urmareste
+            // Vede inamic → raporteaza
             new BTSequence(
                 new BTCondition(() => perception.CanSeeEnemies()),
                 new BTAction(() => {
                     Transform enemy = perception.GetNearestEnemy();
                     if (enemy == null) return NodeState.Failure;
-                    blackboard?.ReportEnemy(enemy.position, agentID);
-                    agentController.MoveTo(enemy.position);
-                    return NodeState.Running;
+                    if (blackboard != null && blackboard.mainEnemy != null)
+                        blackboard.ReportEnemy(blackboard.mainEnemy.position, agentID);
+                    return NodeState.Success;
                 })
             ),
 
-            // 2. Mentine pozitia in fata Leader-ului
+            // Combat → mentine formatia
             new BTSequence(
-                new BTCondition(() => blackboard?.GetLeader() != null),
+                new BTCondition(() => blackboard != null &&
+                    blackboard.combatState == CombatState.Combat),
                 new BTAction(MaintainFormation)
             ),
 
-            // 3. Patruleaza
+            // Idle → patruleaza toata harta
             new BTAction(Patrol)
         );
     }
 
-    // ── SUPPORT ────────────────────────────────────────
-    // Urmeaza Leader-ul, ajuta colegii
+    // ── SUPPORT ─────────────────────────────────────
     void BuildSupportTree()
     {
         behaviorTree = new BTSelector(
 
-            // 1. Vede inamic direct → se angajeaza
+            // Vede inamic → raporteaza
             new BTSequence(
                 new BTCondition(() => perception.CanSeeEnemies()),
                 new BTAction(() => {
                     Transform enemy = perception.GetNearestEnemy();
                     if (enemy == null) return NodeState.Failure;
-                    blackboard?.ReportEnemy(enemy.position, agentID);
-                    agentController.MoveTo(enemy.position);
-                    return NodeState.Running;
+                    if (blackboard != null && blackboard.mainEnemy != null)
+                        blackboard.ReportEnemy(blackboard.mainEnemy.position, agentID);
+                    return NodeState.Success;
                 })
             ),
 
-            // 2. Coleg cere ajutor → se duce la el
+            // Combat → mentine formatia
             new BTSequence(
                 new BTCondition(() => blackboard != null &&
-                    blackboard.helpRequests.Count > 0),
-                new BTAction(SupportAlly)
-            ),
-
-            // 3. Urmeaza Leader-ul in formatie
-            new BTSequence(
-                new BTCondition(() => blackboard?.GetLeader() != null),
+                    blackboard.combatState == CombatState.Combat),
                 new BTAction(MaintainFormation)
             ),
 
-            // 4. Patruleaza
-            new BTAction(Patrol)
+            // Idle → patruleaza perimetru definit
+            new BTAction(PatrolPerimeter)
         );
     }
 
-    // ── SNIPER ─────────────────────────────────────────
-    // Urmeaza formatia, se opreste la distanta cand vede inamic
+    // ── SNIPER ──────────────────────────────────────
     void BuildSniperTree()
     {
         behaviorTree = new BTSelector(
 
-            // 1. Vede inamic → se opreste la distanta mare
+            // Combat → merge la pozitia de sniper si priveste spre inamic
             new BTSequence(
-                new BTCondition(() => perception.CanSeeEnemies()),
-                new BTAction(() => {
-                    Transform enemy = perception.GetNearestEnemy();
-                    if (enemy == null) return NodeState.Failure;
-                    blackboard?.ReportEnemy(enemy.position, agentID);
-
-                    float dist = Vector3.Distance(
-                        transform.position, enemy.position);
-
-                    if (dist > sniperRange)
-                    {
-                        // Se apropie pana la sniperRange
-                        Vector3 dir = (enemy.position -
-                            transform.position).normalized;
-                        Vector3 targetPos = enemy.position -
-                            dir * sniperRange;
-                        agentController.MoveTo(targetPos);
-                    }
-                    else
-                    {
-                        // Este la distanta optima, sta pe loc
-                        agentController.Stop();
-                    }
-                    return NodeState.Running;
-                })
+                new BTCondition(() => blackboard != null &&
+                    blackboard.combatState == CombatState.Combat),
+                new BTAction(SniperCombat)
             ),
 
-            // 2. Urmeaza formatia
-            new BTSequence(
-                new BTCondition(() => blackboard?.GetLeader() != null),
-                new BTAction(MaintainFormation)
-            ),
-
-            // 3. Patruleaza
-            new BTAction(Patrol)
+            // Idle → patruleaza perimetru definit
+            new BTAction(PatrolPerimeter)
         );
     }
 
-    // ── ACTIUNI COMUNE ─────────────────────────────────
+    // ── ACTIUNI ─────────────────────────────────────
 
     NodeState MaintainFormation()
     {
@@ -199,33 +194,35 @@ public class AgentBehaviorTree : MonoBehaviour
         AgentBehaviorTree leader = blackboard?.GetLeader();
         if (leader == null) return NodeState.Failure;
 
-        int totalAgents = blackboard.allAgents.Count - 1;
         Vector3 formationPos = FormationManager.Instance.GetFormationPosition(
             leader.transform.position,
             leader.transform.rotation,
-            formationIndex,
-            totalAgents);
+            formationRow,
+            formationIndexInRow,
+            formationTotalInRow);
 
         agentController.MoveTo(formationPos);
         return NodeState.Running;
     }
 
-    NodeState SupportAlly()
+    NodeState SniperCombat()
     {
-        if (blackboard == null || blackboard.helpRequests.Count == 0)
-            return NodeState.Failure;
+        // Determina pozitia sniper-ului in functie de index
+        Vector3 sniperPos = formationIndexInRow == 0
+            ? blackboard.sniperPosition1
+            : blackboard.sniperPosition2;
 
-        AgentBehaviorTree ally = blackboard.GetAgentByID(
-            blackboard.helpRequests[0]);
-        if (ally == null) return NodeState.Failure;
+        agentController.MoveTo(sniperPos);
 
-        agentController.MoveTo(ally.transform.position);
-
-        if (agentController.HasReachedDestination())
+        // Priveste spre inamic
+        if (blackboard.enemySpotted)
         {
-            blackboard.ResolveHelp(blackboard.helpRequests[0]);
-            return NodeState.Success;
+            Vector3 dirToEnemy = (blackboard.lastKnownEnemyPosition
+                - transform.position).normalized;
+            if (dirToEnemy != Vector3.zero)
+                transform.rotation = Quaternion.LookRotation(dirToEnemy);
         }
+
         return NodeState.Running;
     }
 
@@ -238,13 +235,31 @@ public class AgentBehaviorTree : MonoBehaviour
         return NodeState.Running;
     }
 
+    NodeState PatrolPerimeter()
+    {
+        if (agentController.HasReachedDestination())
+            SetNewPerimeterTarget();
+
+        agentController.MoveTo(patrolTarget);
+        return NodeState.Running;
+    }
+
     void SetNewPatrolTarget()
     {
-        Vector3 randomOffset = new Vector3(
+        // Patrulare pe toata harta
+        patrolTarget = new Vector3(
+            Random.Range(-20f, 20f),
+            0,
+            Random.Range(-20f, 20f));
+    }
+
+    void SetNewPerimeterTarget()
+    {
+        // Patrulare in jurul pozitiei de start
+        patrolTarget = startPosition + new Vector3(
             Random.Range(-patrolRadius, patrolRadius),
             0,
             Random.Range(-patrolRadius, patrolRadius));
-        patrolTarget = startPosition + randomOffset;
     }
 
     public string GetAgentID() => agentID;
