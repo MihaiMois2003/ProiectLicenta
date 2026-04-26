@@ -7,13 +7,16 @@ public class EnemyController : MonoBehaviour
     public float normalSpeed = 2f;
     public float fleeSpeed = 5f;
     public float patrolRadius = 20f;
-    public float liberationDistance = 2f;
+
+    [Header("Secondary Enemies")]
+    public GameObject secondaryEnemyPrefab1;
+    public GameObject secondaryEnemyPrefab2;
+    public Vector3 spawnPosition1 = new Vector3(0, 1, 20);
+    public Vector3 spawnPosition2 = new Vector3(2, 1, 20);
 
     private NavMeshAgent navAgent;
     private TacticalBlackboard blackboard;
-    private SecondaryEnemyController[] secondaryEnemies;
     private bool enemiesLiberated = false;
-    private Vector3 liberationPoint;
 
     void Awake()
     {
@@ -24,13 +27,6 @@ public class EnemyController : MonoBehaviour
     void Start()
     {
         blackboard = TacticalBlackboard.Instance;
-        secondaryEnemies = FindObjectsOfType<SecondaryEnemyController>();
-
-        if (secondaryEnemies.Length >= 2)
-        {
-            liberationPoint = (secondaryEnemies[0].transform.position +
-                secondaryEnemies[1].transform.position) / 2f;
-        }
 
         if (blackboard != null)
             blackboard.mainEnemy = transform;
@@ -40,10 +36,47 @@ public class EnemyController : MonoBehaviour
 
     void Update()
     {
-        if (blackboard != null && blackboard.combatState == CombatState.Combat)
+        if (blackboard != null &&
+            (blackboard.combatState == CombatState.Engaging ||
+             blackboard.combatState == CombatState.Combat))
+        {
+            CheckLiberation();
             Flee();
+        }
         else
+        {
             Patrol();
+        }
+    }
+
+    void CheckLiberation()
+    {
+        if (enemiesLiberated) return;
+
+        HealthSystem hs = GetComponent<HealthSystem>();
+        if (hs != null && hs.GetHPPercentage() < 0.75f)
+            LiberateEnemies();
+    }
+
+    void LiberateEnemies()
+    {
+        enemiesLiberated = true;
+
+        if (secondaryEnemyPrefab1 != null)
+        {
+            GameObject e1 = Instantiate(secondaryEnemyPrefab1,
+                spawnPosition1, Quaternion.identity);
+            e1.GetComponent<SecondaryEnemyController>()?.Liberate();
+        }
+
+        if (secondaryEnemyPrefab2 != null)
+        {
+            GameObject e2 = Instantiate(secondaryEnemyPrefab2,
+                spawnPosition2, Quaternion.identity);
+            e2.GetComponent<SecondaryEnemyController>()?.Liberate();
+        }
+
+        Debug.Log("[Enemy] Inamici secundari spawned!");
     }
 
     void Flee()
@@ -107,14 +140,6 @@ public class EnemyController : MonoBehaviour
                 return;
             }
         }
-    }
-
-    public void TriggerLiberation()
-    {
-        if (enemiesLiberated) return;
-        enemiesLiberated = true;
-        foreach (var enemy in secondaryEnemies)
-            enemy.Liberate();
     }
 
     public float GetHPPercentage()
