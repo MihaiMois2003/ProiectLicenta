@@ -19,14 +19,17 @@ public class AgentBehaviorTree : MonoBehaviour
     [Header("Patrol Settings")]
     public float patrolRadius = 8f;
 
+    [Header("Group")]
+    public int groupID = -1;
+
     private BTNode behaviorTree;
     private AgentController agentController;
     private PerceptionModule perception;
     private TacticalBlackboard blackboard;
     private Vector3 startPosition;
     private Vector3 patrolTarget;
-
-    public string agentIDPublic => agentID;
+    private Transform phase2Target;
+    private float phase2TargetUpdateTimer = 0f;
 
     void Awake()
     {
@@ -55,25 +58,44 @@ public class AgentBehaviorTree : MonoBehaviour
     void UpdateSpeed()
     {
         if (blackboard == null) return;
+        if (role == AgentRole.Leader || role == AgentRole.Sniper) return;
+        if (FormationManager.Instance == null) return;
 
-        AgentBehaviorTree leader = blackboard.GetLeader();
-        if (leader == null || role == AgentRole.Leader) return;
+        // In Faza 2 viteza se calculeaza fata de liderul grupului
+        AgentBehaviorTree referenceLeader = GetGroupLeader();
+        if (referenceLeader == null) return;
 
-        // Daca e departe de pozitia din formatie → viteza marita
         Vector3 formationPos = FormationManager.Instance.GetFormationPosition(
-            leader.transform.position,
-            leader.transform.rotation,
+            referenceLeader.transform.position,
+            referenceLeader.transform.rotation,
             formationRow,
             formationIndexInRow,
             formationTotalInRow);
 
-        float distToFormation = Vector3.Distance(
-            transform.position, formationPos);
+        float distToFormation = Vector3.Distance(transform.position, formationPos);
 
         if (distToFormation > catchUpDistance)
             agentController.SetSpeed(catchUpSpeed);
         else
             agentController.SetSpeed(normalSpeed);
+    }
+
+    // Returneaza liderul grupului in Faza 2, sau liderul global in Faza 1
+    AgentBehaviorTree GetGroupLeader()
+    {
+        if (!blackboard.phase2Active)
+            return blackboard.GetLeader();
+
+        // In Faza 2 liderul grupului e primul agent din grup (formationRow == 0)
+        foreach (EnemyGroup group in blackboard.enemyGroups)
+        {
+            if (group.groupID != groupID) continue;
+            foreach (AgentBehaviorTree agent in group.agents)
+            {
+                if (agent.formationRow == 0) return agent;
+            }
+        }
+        return null;
     }
 
     void BuildBehaviorTree()
@@ -97,7 +119,13 @@ public class AgentBehaviorTree : MonoBehaviour
     {
         behaviorTree = new BTSelector(
 
-            // Combat activ → urmareste inamicul
+            // Faza 2 → urmareste cel mai apropiat inamic
+            new BTSequence(
+                new BTCondition(() => blackboard != null && blackboard.phase2Active),
+                new BTAction(Phase2FollowEnemy)
+            ),
+
+            // Combat → urmareste inamicul principal
             new BTSequence(
                 new BTCondition(() => blackboard != null &&
                     blackboard.combatState == CombatState.Combat),
@@ -108,8 +136,7 @@ public class AgentBehaviorTree : MonoBehaviour
                 })
             ),
 
-            // Engaging → Leader merge spre inamic
-            // Cand ajunge la 8 unitati → porneste Combat
+            // Engaging → merge spre inamic, la 8 unitati porneste Combat
             new BTSequence(
                 new BTCondition(() => blackboard != null &&
                     blackboard.combatState == CombatState.Engaging),
@@ -121,12 +148,10 @@ public class AgentBehaviorTree : MonoBehaviour
 
                     if (dist <= 8f)
                     {
-                        // Leader a ajuns la 8 unitati → porneste lupta
                         blackboard.combatState = CombatState.Combat;
                         return NodeState.Running;
                     }
 
-                    // Inca nu a ajuns → continua sa mearga
                     agentController.MoveTo(blackboard.mainEnemy.position);
                     return NodeState.Running;
                 })
@@ -145,26 +170,32 @@ public class AgentBehaviorTree : MonoBehaviour
     {
         behaviorTree = new BTSelector(
 
+            // Faza 2 → mentine formatia grupului
+            new BTSequence(
+                new BTCondition(() => blackboard != null && blackboard.phase2Active),
+                new BTAction(Phase2MaintainFormation)
+            ),
+
             // Vede inamic → raporteaza
             new BTSequence(
                 new BTCondition(() => perception.CanSeeEnemies()),
                 new BTAction(() => {
                     Transform enemy = perception.GetNearestEnemy();
                     if (enemy == null) return NodeState.Failure;
-                    if (blackboard != null && blackboard.mainEnemy != null)
-                        blackboard.ReportEnemy(blackboard.mainEnemy.position, agentID);
+                    blackboard?.ReportEnemy(enemy.position, agentID);
                     return NodeState.Success;
                 })
             ),
 
-            // Combat → mentine formatia
+            // Engaging sau Combat → mentine formatia globala
             new BTSequence(
                 new BTCondition(() => blackboard != null &&
-                    blackboard.combatState == CombatState.Combat),
+                    (blackboard.combatState == CombatState.Engaging ||
+                     blackboard.combatState == CombatState.Combat)),
                 new BTAction(MaintainFormation)
             ),
 
-            // Idle → patruleaza toata harta
+            // Idle → patruleaza
             new BTAction(Patrol)
         );
     }
@@ -174,26 +205,32 @@ public class AgentBehaviorTree : MonoBehaviour
     {
         behaviorTree = new BTSelector(
 
+            // Faza 2 → mentine formatia grupului
+            new BTSequence(
+                new BTCondition(() => blackboard != null && blackboard.phase2Active),
+                new BTAction(Phase2MaintainFormation)
+            ),
+
             // Vede inamic → raporteaza
             new BTSequence(
                 new BTCondition(() => perception.CanSeeEnemies()),
                 new BTAction(() => {
                     Transform enemy = perception.GetNearestEnemy();
                     if (enemy == null) return NodeState.Failure;
-                    if (blackboard != null && blackboard.mainEnemy != null)
-                        blackboard.ReportEnemy(blackboard.mainEnemy.position, agentID);
+                    blackboard?.ReportEnemy(enemy.position, agentID);
                     return NodeState.Success;
                 })
             ),
 
-            // Combat → mentine formatia
+            // Engaging sau Combat → mentine formatia globala
             new BTSequence(
                 new BTCondition(() => blackboard != null &&
-                    blackboard.combatState == CombatState.Combat),
+                    (blackboard.combatState == CombatState.Engaging ||
+                     blackboard.combatState == CombatState.Combat)),
                 new BTAction(MaintainFormation)
             ),
 
-            // Idle → patruleaza perimetru definit
+            // Idle → patruleaza perimetru
             new BTAction(PatrolPerimeter)
         );
     }
@@ -203,14 +240,15 @@ public class AgentBehaviorTree : MonoBehaviour
     {
         behaviorTree = new BTSelector(
 
-            // Combat → merge la pozitia de sniper si priveste spre inamic
+            // Engaging sau Combat → merge la pozitie si sta acolo
             new BTSequence(
                 new BTCondition(() => blackboard != null &&
-                    blackboard.combatState == CombatState.Combat),
+                    (blackboard.combatState == CombatState.Engaging ||
+                     blackboard.combatState == CombatState.Combat)),
                 new BTAction(SniperCombat)
             ),
 
-            // Idle → patruleaza perimetru definit
+            // Idle → patruleaza perimetru
             new BTAction(PatrolPerimeter)
         );
     }
@@ -235,20 +273,94 @@ public class AgentBehaviorTree : MonoBehaviour
         return NodeState.Running;
     }
 
+    NodeState Phase2MaintainFormation()
+    {
+        if (FormationManager.Instance == null) return NodeState.Failure;
+
+        // Gaseste liderul grupului meu
+        AgentBehaviorTree groupLeader = GetGroupLeader();
+        if (groupLeader == null) return NodeState.Failure;
+
+        // Daca eu sunt liderul grupului → urmaresc inamicul
+        if (groupLeader == this)
+            return Phase2FollowEnemy();
+
+        // Altfel → mentine formatia in jurul liderului grupului
+        Vector3 formationPos = FormationManager.Instance.GetFormationPosition(
+            groupLeader.transform.position,
+            groupLeader.transform.rotation,
+            formationRow,
+            formationIndexInRow,
+            formationTotalInRow);
+
+        agentController.MoveTo(formationPos);
+        return NodeState.Running;
+    }
+
+    NodeState Phase2FollowEnemy()
+    {
+        // Actualizeaza tinta la fiecare 2 secunde
+        phase2TargetUpdateTimer += Time.deltaTime;
+        if (phase2TargetUpdateTimer >= 2f || phase2Target == null)
+        {
+            phase2TargetUpdateTimer = 0f;
+            Vector3 groupCenter = GetGroupCenter();
+            phase2Target = blackboard.GetNearestEnemyFor(groupCenter);
+        }
+
+        if (phase2Target == null) return NodeState.Failure;
+
+        // Verifica daca tinta a murit
+        HealthSystem hs = phase2Target.GetComponent<HealthSystem>();
+        if (hs != null && hs.isDead)
+        {
+            phase2Target = null;
+            return NodeState.Failure;
+        }
+
+        agentController.MoveTo(phase2Target.position);
+        return NodeState.Running;
+    }
+
+    Vector3 GetGroupCenter()
+    {
+        Vector3 center = Vector3.zero;
+        int count = 0;
+
+        foreach (EnemyGroup group in blackboard.enemyGroups)
+        {
+            if (group.groupID != groupID) continue;
+            foreach (AgentBehaviorTree agent in group.agents)
+            {
+                center += agent.transform.position;
+                count++;
+            }
+        }
+
+        return count > 0 ? center / count : transform.position;
+    }
+
     NodeState SniperCombat()
     {
-        // Determina pozitia sniper-ului in functie de index
         Vector3 sniperPos = formationIndexInRow == 0
             ? blackboard.sniperPosition1
             : blackboard.sniperPosition2;
 
-        agentController.MoveTo(sniperPos);
-
-        // Priveste spre inamic
-        if (blackboard.enemySpotted)
+        // Daca nu a ajuns inca la pozitie → merge acolo
+        float distToPos = Vector3.Distance(transform.position, sniperPos);
+        if (distToPos > 1f)
         {
-            Vector3 dirToEnemy = (blackboard.lastKnownEnemyPosition
-                - transform.position).normalized;
+            agentController.MoveTo(sniperPos);
+            return NodeState.Running;
+        }
+
+        // A ajuns → se opreste si priveste spre cel mai apropiat inamic
+        agentController.Stop();
+
+        Transform nearestEnemy = blackboard.GetNearestEnemyFor(transform.position);
+        if (nearestEnemy != null)
+        {
+            Vector3 dirToEnemy = (nearestEnemy.position - transform.position).normalized;
             if (dirToEnemy != Vector3.zero)
                 transform.rotation = Quaternion.LookRotation(dirToEnemy);
         }
@@ -276,7 +388,6 @@ public class AgentBehaviorTree : MonoBehaviour
 
     void SetNewPatrolTarget()
     {
-        // Patrulare pe toata harta
         patrolTarget = new Vector3(
             Random.Range(-20f, 20f),
             0,
@@ -285,7 +396,6 @@ public class AgentBehaviorTree : MonoBehaviour
 
     void SetNewPerimeterTarget()
     {
-        // Patrulare in jurul pozitiei de start
         patrolTarget = startPosition + new Vector3(
             Random.Range(-patrolRadius, patrolRadius),
             0,

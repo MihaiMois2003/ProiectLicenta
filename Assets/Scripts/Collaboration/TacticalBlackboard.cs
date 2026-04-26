@@ -3,9 +3,16 @@ using System.Collections.Generic;
 
 public enum CombatState
 {
-    Idle,        // nimeni nu a vazut inamicul
-    Engaging,  // formatia se pune in pozitie, nimeni nu trage
-    Combat       // inamic detectat, formatie activa
+    Idle,
+    Engaging,
+    Combat
+}
+
+[System.Serializable]
+public class EnemyGroup
+{
+    public int groupID;
+    public List<AgentBehaviorTree> agents = new List<AgentBehaviorTree>();
 }
 
 public class TacticalBlackboard : MonoBehaviour
@@ -30,7 +37,9 @@ public class TacticalBlackboard : MonoBehaviour
     public Vector3 sniperPosition1 = new Vector3(-20, 1, -20);
     public Vector3 sniperPosition2 = new Vector3(-20, 1, 20);
 
-    
+    [Header("Phase 2")]
+    public bool phase2Active = false;
+    public List<EnemyGroup> enemyGroups = new List<EnemyGroup>();
 
     void Awake()
     {
@@ -40,7 +49,6 @@ public class TacticalBlackboard : MonoBehaviour
 
     void Update()
     {
-        // Daca liderul a murit, promoveaza un Scout ca lider nou
         if (combatState == CombatState.Combat)
         {
             AgentBehaviorTree leader = GetLeader();
@@ -59,11 +67,10 @@ public class TacticalBlackboard : MonoBehaviour
             HealthSystem hs = agent.GetComponent<HealthSystem>();
             if (hs == null || hs.isDead) continue;
             if (agent.role == AgentRole.Leader) continue;
+            if (agent.role == AgentRole.Sniper) continue; // sniperii nu devin lideri
 
-            // Primul agent viu devine Leader
             agent.role = AgentRole.Leader;
             agent.RebuildTree();
-            Debug.Log($"[Blackboard] {agent.agentID} promovat ca Leader nou!");
             return;
         }
     }
@@ -86,7 +93,6 @@ public class TacticalBlackboard : MonoBehaviour
     {
         enemySpotted = false;
         combatState = CombatState.Idle;
-        Debug.Log("[Blackboard] Inamic pierdut, revenire la Idle");
     }
 
     public AgentBehaviorTree GetLeader()
@@ -114,5 +120,88 @@ public class TacticalBlackboard : MonoBehaviour
     public void ResolveHelp(string agentID)
     {
         helpRequests.Remove(agentID);
+    }
+
+    public void ActivatePhase2()
+    {
+        if (phase2Active) return;
+        phase2Active = true;
+
+        // Colecteaza agentii non-sniper vii
+        List<AgentBehaviorTree> availableAgents = new List<AgentBehaviorTree>();
+        foreach (AgentBehaviorTree agent in allAgents)
+        {
+            if (agent.role == AgentRole.Sniper) continue;
+            HealthSystem hs = agent.GetComponent<HealthSystem>();
+            if (hs == null || hs.isDead) continue;
+            availableAgents.Add(agent);
+        }
+
+        // Amesteca aleatoriu
+        for (int i = 0; i < availableAgents.Count; i++)
+        {
+            int rand = Random.Range(i, availableAgents.Count);
+            AgentBehaviorTree temp = availableAgents[i];
+            availableAgents[i] = availableAgents[rand];
+            availableAgents[rand] = temp;
+        }
+
+        // Imparte in grupuri de 3
+        enemyGroups.Clear();
+        for (int i = 0; i < availableAgents.Count; i += 3)
+        {
+            EnemyGroup group = new EnemyGroup();
+            group.groupID = i / 3;
+
+            for (int j = i; j < Mathf.Min(i + 3, availableAgents.Count); j++)
+            {
+                int indexInGroup = j - i;
+                availableAgents[j].groupID = group.groupID;
+
+                // Primul din grup e varful triunghiului
+                if (indexInGroup == 0)
+                {
+                    availableAgents[j].formationRow = 0;
+                    availableAgents[j].formationIndexInRow = 0;
+                    availableAgents[j].formationTotalInRow = 1;
+                }
+                else
+                {
+                    availableAgents[j].formationRow = 1;
+                    availableAgents[j].formationIndexInRow = indexInGroup - 1;
+                    availableAgents[j].formationTotalInRow = 2;
+                }
+
+                availableAgents[j].RebuildTree();
+                group.agents.Add(availableAgents[j]);
+            }
+
+            enemyGroups.Add(group);
+        }
+
+        Debug.Log($"[Blackboard] Faza 2 activa! {enemyGroups.Count} grupuri formate.");
+    }
+
+    public Transform GetNearestEnemyFor(Vector3 position)
+    {
+        int enemyLayer = LayerMask.GetMask("Enemy", "SecondaryEnemy");
+        Collider[] colliders = Physics.OverlapSphere(position, 100f, enemyLayer);
+
+        Transform nearest = null;
+        float minDist = Mathf.Infinity;
+
+        foreach (Collider col in colliders)
+        {
+            HealthSystem hs = col.GetComponent<HealthSystem>();
+            if (hs == null || hs.isDead) continue;
+
+            float dist = Vector3.Distance(position, col.transform.position);
+            if (dist < minDist)
+            {
+                minDist = dist;
+                nearest = col.transform;
+            }
+        }
+        return nearest;
     }
 }

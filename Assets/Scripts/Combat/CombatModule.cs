@@ -39,7 +39,7 @@ public class CombatModule : MonoBehaviour
         if (!isSniper && !isEnemy)
         {
             float dist = Vector3.Distance(transform.position, target.position);
-            if (dist > perception.viewRadius) return;
+            if (dist > healthSystem.attackRange) return;
         }
 
         Attack(target);

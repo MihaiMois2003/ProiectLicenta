@@ -76,6 +76,8 @@ public class EnemyController : MonoBehaviour
             e2.GetComponent<SecondaryEnemyController>()?.Liberate();
         }
 
+        blackboard?.ActivatePhase2();
+
         Debug.Log("[Enemy] Inamici secundari spawned!");
     }
 
