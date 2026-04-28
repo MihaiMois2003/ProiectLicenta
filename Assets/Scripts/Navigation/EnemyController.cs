@@ -5,7 +5,10 @@ public class EnemyController : MonoBehaviour
 {
     [Header("Settings")]
     public float normalSpeed = 2f;
-    public float fleeSpeed = 5f;
+    [Tooltip("Viteza cand fuge de Leader in Faza 1 (Engaging). " +
+             "TINE-O MAI MICA decat viteza Leader-ului ca sa fie prins!")]
+    public float fleeSpeed = 3f;
+    public float chaseSpeed = 4f;
     public float patrolRadius = 20f;
 
     [Header("Secondary Enemies")]
@@ -36,17 +39,52 @@ public class EnemyController : MonoBehaviour
 
     void Update()
     {
-        if (blackboard != null &&
-            (blackboard.combatState == CombatState.Engaging ||
-             blackboard.combatState == CombatState.Combat))
+        if (blackboard == null) return;
+
+        // Verifica eliberarea inamicilor secundari (HP < 75%)
+        if (blackboard.combatState == CombatState.Engaging ||
+            blackboard.combatState == CombatState.Combat ||
+            blackboard.phase2Active)
         {
             CheckLiberation();
+        }
+
+        // Comportament:
+        // - Faza 2 cu reversal: URMARESC grupul asignat
+        // - Faza 2 normala: sta pe loc (lasa CombatModule sa traga)
+        // - Combat (Faza 1): sta pe loc (Leader-ul e in range, lupta)
+        // - Engaging (Faza 1): FUGE de Leader (asa pare ca incearca sa scape)
+        // - Idle: patruleaza
+
+        if (blackboard.phase2Active && blackboard.rolesReversed)
+        {
+            ChaseAssignedGroup();
+        }
+        else if (blackboard.phase2Active)
+        {
+            // Faza 2 normala: stau pe loc
+            StopMoving();
+        }
+        else if (blackboard.combatState == CombatState.Combat)
+        {
+            // Combat Faza 1: stau pe loc, Leader-ul e aproape, lupta
+            StopMoving();
+        }
+        else if (blackboard.combatState == CombatState.Engaging)
+        {
+            // Engaging Faza 1: FUG de Leader pana cand ajunge in range
             Flee();
         }
         else
         {
             Patrol();
         }
+    }
+
+    void StopMoving()
+    {
+        if (navAgent.isOnNavMesh && navAgent.hasPath)
+            navAgent.ResetPath();
     }
 
     void CheckLiberation()
@@ -62,10 +100,15 @@ public class EnemyController : MonoBehaviour
     {
         enemiesLiberated = true;
 
+        // Citeste maxHP de la inamicul principal pentru a-l aplica secundarilor
+        HealthSystem mainHS = GetComponent<HealthSystem>();
+        float mainMaxHP = mainHS != null ? mainHS.maxHP : 100f;
+
         if (secondaryEnemyPrefab1 != null)
         {
             GameObject e1 = Instantiate(secondaryEnemyPrefab1,
                 spawnPosition1, Quaternion.identity);
+            ApplyHPFromMain(e1, mainMaxHP);
             e1.GetComponent<SecondaryEnemyController>()?.Liberate();
         }
 
@@ -73,14 +116,26 @@ public class EnemyController : MonoBehaviour
         {
             GameObject e2 = Instantiate(secondaryEnemyPrefab2,
                 spawnPosition2, Quaternion.identity);
+            ApplyHPFromMain(e2, mainMaxHP);
             e2.GetComponent<SecondaryEnemyController>()?.Liberate();
         }
 
         blackboard?.ActivatePhase2();
 
-        Debug.Log("[Enemy] Inamici secundari spawned!");
+        Debug.Log($"[Enemy] Inamici secundari spawned cu {mainMaxHP} HP!");
     }
 
+    // Suprascrie maxHP si currentHP ale secundarului cu HP-ul inamicului principal
+    void ApplyHPFromMain(GameObject secondary, float mainMaxHP)
+    {
+        HealthSystem hs = secondary.GetComponent<HealthSystem>();
+        if (hs == null) return;
+
+        hs.maxHP = mainMaxHP;
+        hs.currentHP = mainMaxHP;
+    }
+
+    // Fuge de Leader (Faza 1, Engaging)
     void Flee()
     {
         navAgent.speed = fleeSpeed;
@@ -93,7 +148,7 @@ public class EnemyController : MonoBehaviour
     void SetNewFleeTarget()
     {
         AgentBehaviorTree leader = blackboard?.GetLeader();
-        if (leader == null) return;
+        if (leader == null) { SetNewPatrolTarget(); return; }
 
         for (int i = 0; i < 15; i++)
         {
@@ -115,6 +170,63 @@ public class EnemyController : MonoBehaviour
         }
 
         SetNewPatrolTarget();
+    }
+
+    // In reversal: urmareste grupul de agenti asignat
+    void ChaseAssignedGroup()
+    {
+        navAgent.speed = chaseSpeed;
+
+        EnemyGroup myGroup = blackboard.GetGroupAssignedToEnemy(transform);
+        if (myGroup == null || myGroup.agents.Count == 0)
+        {
+            StopMoving();
+            return;
+        }
+
+        Vector3 groupCenter = Vector3.zero;
+        int count = 0;
+        foreach (AgentBehaviorTree a in myGroup.agents)
+        {
+            HealthSystem hs = a.GetComponent<HealthSystem>();
+            if (hs == null || hs.isDead) continue;
+            groupCenter += a.transform.position;
+            count++;
+        }
+
+        if (count == 0)
+        {
+            ChaseNearestSniper();
+            return;
+        }
+
+        groupCenter /= count;
+
+        if (navAgent.isOnNavMesh)
+            navAgent.SetDestination(groupCenter);
+    }
+
+    void ChaseNearestSniper()
+    {
+        Transform nearestSniper = null;
+        float minDist = Mathf.Infinity;
+        foreach (AgentBehaviorTree a in blackboard.allAgents)
+        {
+            if (a == null || a.role != AgentRole.Sniper) continue;
+            HealthSystem hs = a.GetComponent<HealthSystem>();
+            if (hs == null || hs.isDead) continue;
+            float dist = Vector3.Distance(transform.position, a.transform.position);
+            if (dist < minDist)
+            {
+                minDist = dist;
+                nearestSniper = a.transform;
+            }
+        }
+
+        if (nearestSniper != null && navAgent.isOnNavMesh)
+            navAgent.SetDestination(nearestSniper.position);
+        else
+            StopMoving();
     }
 
     void Patrol()
