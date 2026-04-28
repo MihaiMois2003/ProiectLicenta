@@ -356,36 +356,116 @@ public class AgentBehaviorTree : MonoBehaviour
         return NodeState.Running;
     }
 
-    // Liderul grupului fuge: alege un punct in directia opusa fata de inamic,
-    // la o distanta de fleeDistance. Intregul grup il urmeaza in formatie.
+    // Liderul grupului fuge haotic: alege puncte random pe harta care sunt
+    // destul de departe de inamic. Schimba destinatia cand a ajuns la ea
+    // sau dupa un timeout, pentru a parea imprevizibil.
+    private Vector3 fleeWaypoint;
+    private bool hasFleeWaypoint = false;
+    private float fleeWaypointTimer = 0f;
+    [Header("Flee Internal")]
+    [Tooltip("Schimba directia de fuga la fiecare X secunde, chiar daca nu a ajuns inca.")]
+    public float fleeRefreshInterval = 2.5f;
+    [Tooltip("Distanta minima fata de inamic pe care o cauta cand alege un punct nou de fuga.")]
+    public float fleeMinDistanceFromEnemy = 12f;
+    [Tooltip("Raza in jurul agentului in care cauta puncte de fuga (limiteaza pana la marginea hartii).")]
+    public float fleeSearchRadius = 18f;
+
     NodeState Phase2FleeAsLeader()
     {
         Transform threat = blackboard.GetAssignedEnemyForGroup(groupID);
         if (threat == null) return NodeState.Failure;
 
-        Vector3 awayDir = (transform.position - threat.position);
-        awayDir.y = 0;
+        fleeWaypointTimer += Time.deltaTime;
 
-        // Daca am ajuns deja prea aproape de inamic sau am suprapunere, ia o directie aleatoare
-        if (awayDir.sqrMagnitude < 0.1f)
-            awayDir = new Vector3(
-                Random.Range(-1f, 1f), 0, Random.Range(-1f, 1f));
+        // Stabileste daca avem nevoie de un punct nou de fuga
+        bool needsNewWaypoint = false;
 
-        awayDir.Normalize();
-
-        Vector3 fleeTarget = transform.position + awayDir * fleeDistance;
-
-        agentController.MoveTo(fleeTarget);
-
-        // Liderul de grup priveste in directia in care fuge (formatia il urmeaza)
-        if (awayDir.sqrMagnitude > 0.01f)
+        if (!hasFleeWaypoint)
         {
-            Quaternion targetRot = Quaternion.LookRotation(awayDir);
+            needsNewWaypoint = true;
+        }
+        else if (fleeWaypointTimer >= fleeRefreshInterval)
+        {
+            // A trecut suficient timp - schimba directia ca sa para haotic
+            needsNewWaypoint = true;
+        }
+        else if (Vector3.Distance(transform.position, fleeWaypoint) < 1.5f)
+        {
+            // A ajuns la punctul curent - alege altul
+            needsNewWaypoint = true;
+        }
+        else
+        {
+            // Daca punctul actual a ajuns prea aproape de inamic intre timp
+            // (inamicul s-a apropiat), il abandonam
+            float waypointDistFromThreat = Vector3.Distance(fleeWaypoint, threat.position);
+            if (waypointDistFromThreat < fleeMinDistanceFromEnemy * 0.6f)
+                needsNewWaypoint = true;
+        }
+
+        if (needsNewWaypoint)
+        {
+            if (PickRandomFleeWaypoint(threat.position, out fleeWaypoint))
+            {
+                hasFleeWaypoint = true;
+                fleeWaypointTimer = 0f;
+            }
+            else
+            {
+                // Fallback daca nu a gasit nimic valid - directia opusa simpla
+                Vector3 awayDir = (transform.position - threat.position);
+                awayDir.y = 0;
+                if (awayDir.sqrMagnitude < 0.1f)
+                    awayDir = new Vector3(Random.Range(-1f, 1f), 0, Random.Range(-1f, 1f));
+                awayDir.Normalize();
+                fleeWaypoint = transform.position + awayDir * fleeDistance;
+                hasFleeWaypoint = true;
+                fleeWaypointTimer = 0f;
+            }
+        }
+
+        agentController.MoveTo(fleeWaypoint);
+
+        // Liderul de grup priveste in directia in care merge (formatia il urmeaza)
+        Vector3 moveDir = fleeWaypoint - transform.position;
+        moveDir.y = 0;
+        if (moveDir.sqrMagnitude > 0.01f)
+        {
+            Quaternion targetRot = Quaternion.LookRotation(moveDir.normalized);
             transform.rotation = Quaternion.Slerp(
                 transform.rotation, targetRot, Time.deltaTime * 5f);
         }
 
         return NodeState.Running;
+    }
+
+    // Cauta un punct random pe NavMesh in jurul agentului care e suficient de departe
+    // de inamicul-amenintare. Incearca de mai multe ori cu directii random.
+    bool PickRandomFleeWaypoint(Vector3 threatPosition, out Vector3 waypoint)
+    {
+        for (int i = 0; i < 20; i++)
+        {
+            // Punct random in jurul pozitiei curente
+            Vector2 randomCircle = Random.insideUnitCircle * fleeSearchRadius;
+            Vector3 candidate = transform.position +
+                new Vector3(randomCircle.x, 0, randomCircle.y);
+
+            // Verifica distanta fata de inamic
+            float distFromThreat = Vector3.Distance(candidate, threatPosition);
+            if (distFromThreat < fleeMinDistanceFromEnemy) continue;
+
+            // Verifica ca punctul e pe NavMesh (deci accesibil, nu in afara hartii)
+            UnityEngine.AI.NavMeshHit hit;
+            if (UnityEngine.AI.NavMesh.SamplePosition(candidate, out hit, 3f,
+                UnityEngine.AI.NavMesh.AllAreas))
+            {
+                waypoint = hit.position;
+                return true;
+            }
+        }
+
+        waypoint = Vector3.zero;
+        return false;
     }
 
     // ── SNIPER ACTIONS ──────────────────────────────
