@@ -145,6 +145,12 @@ MonoBehaviour:
   catchUpSpeed: 6
   catchUpDistance: 3
   patrolRadius: 8
+  groupID: -1
+  fleeDistance: 15
+  currentCombatTarget: {fileID: 0}
+  fleeRefreshInterval: 2.5
+  fleeMinDistanceFromEnemy: 12
+  fleeSearchRadius: 18
 --- !u!114 &47172720
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -159,6 +165,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CombatModule
   isEnemy: 0
   isSniper: 0
+  sniperHitChance: 0.3
 --- !u!114 &47172721
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -174,7 +181,7 @@ MonoBehaviour:
   maxHP: 100
   currentHP: 0
   attackDamage: 10
-  attackRange: 10
+  attackRange: 30
   attackCooldown: 1
   isDead: 0
 --- !u!1 &59851726 stripped
@@ -203,6 +210,12 @@ MonoBehaviour:
   catchUpSpeed: 6
   catchUpDistance: 3
   patrolRadius: 8
+  groupID: -1
+  fleeDistance: 15
+  currentCombatTarget: {fileID: 0}
+  fleeRefreshInterval: 2.5
+  fleeMinDistanceFromEnemy: 12
+  fleeSearchRadius: 18
 --- !u!114 &59851738
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -217,6 +230,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CombatModule
   isEnemy: 0
   isSniper: 0
+  sniperHitChance: 0.3
 --- !u!114 &59851739
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -232,7 +246,7 @@ MonoBehaviour:
   maxHP: 100
   currentHP: 0
   attackDamage: 10
-  attackRange: 10
+  attackRange: 20
   attackCooldown: 1
   isDead: 0
 --- !u!1001 &111084147
@@ -478,6 +492,12 @@ MonoBehaviour:
   catchUpSpeed: 6
   catchUpDistance: 3
   patrolRadius: 8
+  groupID: -1
+  fleeDistance: 15
+  currentCombatTarget: {fileID: 0}
+  fleeRefreshInterval: 2.5
+  fleeMinDistanceFromEnemy: 12
+  fleeSearchRadius: 18
 --- !u!114 &206510311
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -492,6 +512,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CombatModule
   isEnemy: 0
   isSniper: 1
+  sniperHitChance: 0.3
 --- !u!114 &206510312
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -507,7 +528,7 @@ MonoBehaviour:
   maxHP: 100
   currentHP: 0
   attackDamage: 10
-  attackRange: 10
+  attackRange: 100
   attackCooldown: 1
   isDead: 0
 --- !u!1001 &249093927
@@ -1013,6 +1034,12 @@ MonoBehaviour:
   catchUpSpeed: 6
   catchUpDistance: 3
   patrolRadius: 8
+  groupID: -1
+  fleeDistance: 15
+  currentCombatTarget: {fileID: 0}
+  fleeRefreshInterval: 2.5
+  fleeMinDistanceFromEnemy: 12
+  fleeSearchRadius: 18
 --- !u!114 &482943301
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1027,6 +1054,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CombatModule
   isEnemy: 0
   isSniper: 1
+  sniperHitChance: 0.3
 --- !u!114 &482943302
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1042,7 +1070,7 @@ MonoBehaviour:
   maxHP: 100
   currentHP: 0
   attackDamage: 10
-  attackRange: 10
+  attackRange: 100
   attackCooldown: 1
   isDead: 0
 --- !u!1001 &705579414
@@ -1191,6 +1219,12 @@ MonoBehaviour:
   catchUpSpeed: 6
   catchUpDistance: 3
   patrolRadius: 8
+  groupID: -1
+  fleeDistance: 15
+  currentCombatTarget: {fileID: 0}
+  fleeRefreshInterval: 2.5
+  fleeMinDistanceFromEnemy: 12
+  fleeSearchRadius: 18
 --- !u!114 &873262549
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1205,6 +1239,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CombatModule
   isEnemy: 0
   isSniper: 0
+  sniperHitChance: 0.3
 --- !u!114 &873262550
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1220,7 +1255,7 @@ MonoBehaviour:
   maxHP: 100
   currentHP: 0
   attackDamage: 10
-  attackRange: 10
+  attackRange: 30
   attackCooldown: 1
   isDead: 0
 --- !u!1 &957774793 stripped
@@ -1249,6 +1284,12 @@ MonoBehaviour:
   catchUpSpeed: 6
   catchUpDistance: 3
   patrolRadius: 8
+  groupID: -1
+  fleeDistance: 15
+  currentCombatTarget: {fileID: 0}
+  fleeRefreshInterval: 2.5
+  fleeMinDistanceFromEnemy: 12
+  fleeSearchRadius: 18
 --- !u!114 &957774805
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1263,6 +1304,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CombatModule
   isEnemy: 0
   isSniper: 0
+  sniperHitChance: 0.3
 --- !u!114 &957774806
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1278,7 +1320,7 @@ MonoBehaviour:
   maxHP: 100
   currentHP: 0
   attackDamage: 10
-  attackRange: 10
+  attackRange: 20
   attackCooldown: 1
   isDead: 0
 --- !u!1001 &1003426834
@@ -1520,6 +1562,12 @@ MonoBehaviour:
   catchUpSpeed: 6
   catchUpDistance: 3
   patrolRadius: 8
+  groupID: -1
+  fleeDistance: 15
+  currentCombatTarget: {fileID: 0}
+  fleeRefreshInterval: 2.5
+  fleeMinDistanceFromEnemy: 12
+  fleeSearchRadius: 18
 --- !u!114 &1331946190
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1534,6 +1582,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CombatModule
   isEnemy: 0
   isSniper: 0
+  sniperHitChance: 0.3
 --- !u!114 &1331946191
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1549,7 +1598,7 @@ MonoBehaviour:
   maxHP: 100
   currentHP: 0
   attackDamage: 10
-  attackRange: 10
+  attackRange: 30
   attackCooldown: 1
   isDead: 0
 --- !u!1 &1352697040 stripped
@@ -1578,6 +1627,12 @@ MonoBehaviour:
   catchUpSpeed: 6
   catchUpDistance: 3
   patrolRadius: 8
+  groupID: -1
+  fleeDistance: 15
+  currentCombatTarget: {fileID: 0}
+  fleeRefreshInterval: 2.5
+  fleeMinDistanceFromEnemy: 12
+  fleeSearchRadius: 18
 --- !u!114 &1352697052
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1592,6 +1647,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CombatModule
   isEnemy: 0
   isSniper: 0
+  sniperHitChance: 0.3
 --- !u!114 &1352697053
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1607,7 +1663,7 @@ MonoBehaviour:
   maxHP: 100
   currentHP: 0
   attackDamage: 10
-  attackRange: 10
+  attackRange: 20
   attackCooldown: 1
   isDead: 0
 --- !u!1 &1451756418
@@ -1647,6 +1703,10 @@ MonoBehaviour:
   allAgents: []
   sniperPosition1: {x: -20, y: 1, z: -20}
   sniperPosition2: {x: -20, y: 1, z: 20}
+  phase2Active: 0
+  enemyGroups: []
+  rolesReversed: 0
+  reversalCheckInterval: 1
   helpRequests: []
 --- !u!4 &1451756420
 Transform:
@@ -1760,6 +1820,12 @@ MonoBehaviour:
   catchUpSpeed: 6
   catchUpDistance: 3
   patrolRadius: 8
+  groupID: -1
+  fleeDistance: 15
+  currentCombatTarget: {fileID: 0}
+  fleeRefreshInterval: 2.5
+  fleeMinDistanceFromEnemy: 12
+  fleeSearchRadius: 18
 --- !u!114 &1465579344
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1774,6 +1840,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CombatModule
   isEnemy: 0
   isSniper: 0
+  sniperHitChance: 0.3
 --- !u!114 &1465579345
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1789,7 +1856,7 @@ MonoBehaviour:
   maxHP: 100
   currentHP: 0
   attackDamage: 10
-  attackRange: 10
+  attackRange: 30
   attackCooldown: 1
   isDead: 0
 --- !u!1 &1548413937 stripped
@@ -1818,6 +1885,12 @@ MonoBehaviour:
   catchUpSpeed: 6
   catchUpDistance: 3
   patrolRadius: 8
+  groupID: -1
+  fleeDistance: 15
+  currentCombatTarget: {fileID: 0}
+  fleeRefreshInterval: 2.5
+  fleeMinDistanceFromEnemy: 12
+  fleeSearchRadius: 18
 --- !u!114 &1548413949
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1832,6 +1905,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CombatModule
   isEnemy: 0
   isSniper: 0
+  sniperHitChance: 0.3
 --- !u!114 &1548413950
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1844,7 +1918,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 803bc575330f8af4a929dda4359d6d1e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HealthSystem
-  maxHP: 100
+  maxHP: 150
   currentHP: 0
   attackDamage: 10
   attackRange: 10
@@ -1988,6 +2062,12 @@ MonoBehaviour:
   catchUpSpeed: 6
   catchUpDistance: 3
   patrolRadius: 8
+  groupID: -1
+  fleeDistance: 15
+  currentCombatTarget: {fileID: 0}
+  fleeRefreshInterval: 2.5
+  fleeMinDistanceFromEnemy: 12
+  fleeSearchRadius: 18
 --- !u!114 &1912582978
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2002,6 +2082,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CombatModule
   isEnemy: 0
   isSniper: 0
+  sniperHitChance: 0.3
 --- !u!114 &1912582979
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2017,7 +2098,7 @@ MonoBehaviour:
   maxHP: 100
   currentHP: 0
   attackDamage: 10
-  attackRange: 10
+  attackRange: 30
   attackCooldown: 1
   isDead: 0
 --- !u!1 &2110420477 stripped
@@ -2037,7 +2118,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 803bc575330f8af4a929dda4359d6d1e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HealthSystem
-  maxHP: 100
+  maxHP: 2000
   currentHP: 0
   attackDamage: 10
   attackRange: 10
@@ -2057,6 +2138,27 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CombatModule
   isEnemy: 1
   isSniper: 0
+  sniperHitChance: 0.3
+--- !u!114 &2110420492
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2110420477}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: be40acb01fb85ca45ad2a1a2b81460a3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyController
+  normalSpeed: 2
+  fleeSpeed: 3
+  chaseSpeed: 4
+  patrolRadius: 20
+  secondaryEnemyPrefab1: {fileID: 2176302785004463842, guid: b1f514897e5cb9b4aab204d84188202a, type: 3}
+  secondaryEnemyPrefab2: {fileID: 2179906661171846795, guid: a6addae893e70e449bb081388b5bc5e9, type: 3}
+  spawnPosition1: {x: 0, y: 1, z: 20}
+  spawnPosition2: {x: 2, y: 1, z: 20}
 --- !u!1001 &2116496033
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -2191,6 +2293,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 7242438455667358566, guid: 0dabeb5ecc4dc5f499120a8c4762e326, type: 3}
       insertIndex: -1
       addedObject: {fileID: 2110420485}
+    - targetCorrespondingSourceObject: {fileID: 7242438455667358566, guid: 0dabeb5ecc4dc5f499120a8c4762e326, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2110420492}
   m_SourcePrefab: {fileID: 100100000, guid: 0dabeb5ecc4dc5f499120a8c4762e326, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
