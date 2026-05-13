@@ -69,6 +69,8 @@ public class SecondaryEnemyController : MonoBehaviour
     // Faza 2 normala: fuge de centrul grupului care il urmareste
     void FleeFromAssignedGroup()
     {
+        if (navAgent == null || !navAgent.enabled || !navAgent.isOnNavMesh) return;
+
         navAgent.speed = fleeSpeed;
 
         if (!navAgent.pathPending &&
@@ -153,6 +155,8 @@ public class SecondaryEnemyController : MonoBehaviour
 
     void ChaseAssignedGroup()
     {
+        if (navAgent == null || !navAgent.enabled || !navAgent.isOnNavMesh) return;
+
         navAgent.speed = chaseSpeed;
 
         EnemyGroup myGroup = blackboard.GetGroupAssignedToEnemy(transform);

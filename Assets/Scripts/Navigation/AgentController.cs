@@ -36,6 +36,9 @@ public class AgentController : MonoBehaviour
     // Verifica daca agentul a ajuns la destinatie
     public bool HasReachedDestination()
     {
+        if (navAgent == null || !navAgent.enabled || !navAgent.isOnNavMesh)
+            return true;
+
         if (!navAgent.pathPending && navAgent.remainingDistance <= navAgent.stoppingDistance)
             return true;
         return false;

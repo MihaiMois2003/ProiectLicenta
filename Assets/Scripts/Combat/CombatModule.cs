@@ -13,6 +13,7 @@ public class CombatModule : MonoBehaviour
     private HealthSystem healthSystem;
     private PerceptionModule perception;
     private AgentBehaviorTree behaviorTree; // pentru a sti currentCombatTarget
+    private SniperMLAgent sniperML; // optional - daca exista, decizia de a trage e luata de retea
 
     // Folosit DOAR pentru sniperi: tinta proprie, persistenta pana moare
     private Transform sniperPrivateTarget = null;
@@ -22,6 +23,7 @@ public class CombatModule : MonoBehaviour
         healthSystem = GetComponent<HealthSystem>();
         perception = GetComponent<PerceptionModule>();
         behaviorTree = GetComponent<AgentBehaviorTree>();
+        sniperML = GetComponent<SniperMLAgent>();
     }
 
     void Update()
@@ -198,15 +200,62 @@ public class CombatModule : MonoBehaviour
         HealthSystem targetHS = target.GetComponent<HealthSystem>();
         if (targetHS == null) return;
 
-        // Sniper: rata de succes configurabila
+        // Sniper: decide cu ML daca e disponibil, altfel rata fixa
         if (isSniper)
         {
-            float chance = Random.Range(0f, 1f);
-            if (chance > sniperHitChance)
+            bool useML = sniperML != null && sniperML.isActive;
+
+            if (useML)
             {
+                // Ofera tinta + cere decizia
+                sniperML.SetTarget(target);
+                sniperML.RequestDecision();
+
+                // Daca decizia nu e gata inca (primul frame), nu trage
+                if (!sniperML.decisionReady) return;
+
+                bool shouldShoot = sniperML.wantsToShoot;
+                sniperML.ConsumeDecision();
+
+                if (!shouldShoot)
+                {
+                    // Decizia: NU trage - dar tot consumam cooldown putin
+                    // ca sa nu rezulte un loop infinit de RequestDecision
+                    return;
+                }
+
+                // Decizia: TRAGE - aplicam regula obisnuita de hit/miss
+                float chance = Random.Range(0f, 1f);
+                if (chance > sniperHitChance)
+                {
+                    healthSystem.ResetAttackTimer();
+                    sniperML.OnShotMissed();
+                    Debug.Log($"[Combat] {gameObject.name} (sniper-ML) a tras in {target.name} dar a RATAT.");
+                    return;
+                }
+
+                // Hit - aplica damage si reward
+                float dmgBefore = targetHS.currentHP;
+                targetHS.TakeDamage(healthSystem.attackDamage);
                 healthSystem.ResetAttackTimer();
-                Debug.Log($"[Combat] {gameObject.name} (sniper) a tras in {target.name} dar a RATAT.");
+                bool died = targetHS.isDead;
+                sniperML.OnShotHit(healthSystem.attackDamage, died);
+
+                Debug.Log($"[Combat] {gameObject.name} (sniper-ML) a atacat {target.name} " +
+                    $"pentru {healthSystem.attackDamage} damage. " +
+                    $"HP ramas: {targetHS.currentHP}/{targetHS.maxHP}");
                 return;
+            }
+            else
+            {
+                // Fallback la logica fixa
+                float chance = Random.Range(0f, 1f);
+                if (chance > sniperHitChance)
+                {
+                    healthSystem.ResetAttackTimer();
+                    Debug.Log($"[Combat] {gameObject.name} (sniper) a tras in {target.name} dar a RATAT.");
+                    return;
+                }
             }
         }
 

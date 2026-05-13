@@ -20,11 +20,13 @@ public class EnemyController : MonoBehaviour
     private NavMeshAgent navAgent;
     private TacticalBlackboard blackboard;
     private bool enemiesLiberated = false;
+    private EnemyMLAgent mlAgent; // optional - daca exista, decide directia de fugit
 
     void Awake()
     {
         navAgent = GetComponent<NavMeshAgent>();
         navAgent.speed = normalSpeed;
+        mlAgent = GetComponent<EnemyMLAgent>();
     }
 
     void Start()
@@ -138,8 +140,32 @@ public class EnemyController : MonoBehaviour
     // Fuge de Leader (Faza 1, Engaging)
     void Flee()
     {
+        if (navAgent == null || !navAgent.enabled || !navAgent.isOnNavMesh) return;
+
         navAgent.speed = fleeSpeed;
 
+        // Daca avem ML agent activ, folosim decizia retelei
+        if (mlAgent != null && mlAgent.isActive)
+        {
+            mlAgent.RequestDecision();
+            if (mlAgent.decisionReady)
+            {
+                Vector2 dir = mlAgent.desiredMoveDirection;
+                Vector3 moveDir = new Vector3(dir.x, 0, dir.y);
+
+                if (moveDir.sqrMagnitude > 0.01f && navAgent.isOnNavMesh)
+                {
+                    Vector3 destination = transform.position + moveDir * 5f;
+                    NavMeshHit hit;
+                    if (NavMesh.SamplePosition(destination, out hit, 5f, NavMesh.AllAreas))
+                        navAgent.SetDestination(hit.position);
+                }
+                mlAgent.ConsumeDecision();
+            }
+            return;
+        }
+
+        // Fallback: logica clasica de fuga aleatorie
         if (!navAgent.pathPending &&
             navAgent.remainingDistance <= navAgent.stoppingDistance)
             SetNewFleeTarget();
@@ -175,6 +201,8 @@ public class EnemyController : MonoBehaviour
     // In reversal: urmareste grupul de agenti asignat
     void ChaseAssignedGroup()
     {
+        if (navAgent == null || !navAgent.enabled || !navAgent.isOnNavMesh) return;
+
         navAgent.speed = chaseSpeed;
 
         EnemyGroup myGroup = blackboard.GetGroupAssignedToEnemy(transform);
@@ -231,6 +259,8 @@ public class EnemyController : MonoBehaviour
 
     void Patrol()
     {
+        if (navAgent == null || !navAgent.enabled || !navAgent.isOnNavMesh) return;
+
         navAgent.speed = normalSpeed;
 
         if (!navAgent.pathPending &&
