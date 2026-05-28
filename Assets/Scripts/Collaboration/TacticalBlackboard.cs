@@ -111,11 +111,38 @@ public class TacticalBlackboard : MonoBehaviour
         timeEnemyWasSpotted = Time.time;
         if (combatState == CombatState.Idle)
             combatState = CombatState.Engaging;
+
+        // Propaga raportul in functie de modul de comunicare.
+        ExperimentConfig cfg = ExperimentConfig.Instance;
+        if (cfg == null || cfg.communicationMode == CommunicationMode.Blackboard)
+        {
+            // Cunoastere globala: toti agentii afla instant.
+            foreach (AgentBehaviorTree a in allAgents)
+                if (a != null) a.ReceiveEnemyReport(position);
+        }
+        else // LocalBroadcast
+        {
+            // Doar agentii aflati in commRange fata de raportor afla.
+            AgentBehaviorTree reporter = GetAgentByID(agentID);
+            if (reporter != null)
+            {
+                Vector3 origin = reporter.transform.position;
+                float r = cfg.commRange;
+                foreach (AgentBehaviorTree a in allAgents)
+                {
+                    if (a == null) continue;
+                    if (Vector3.Distance(origin, a.transform.position) <= r)
+                        a.ReceiveEnemyReport(position);
+                }
+            }
+        }
     }
 
     public void ClearEnemyInfo()
     {
         enemySpotted = false;
+        foreach (AgentBehaviorTree a in allAgents)
+            if (a != null) a.ClearEnemyKnowledge();
         // Nu resetam combatState daca suntem deja in Combat sau Faza 2
         if (combatState == CombatState.Engaging && !phase2Active)
             combatState = CombatState.Idle;
@@ -211,9 +238,8 @@ public class TacticalBlackboard : MonoBehaviour
                 group.agents.Add(availableAgents[j]);
             }
 
-            // 5. Asigneaza un inamic
-            if (liveEnemies.Count > 0)
-                group.assignedEnemy = liveEnemies[groupIndex % liveEnemies.Count];
+            // 5. Asigneaza un inamic in functie de modul de colaborare
+            AssignTargetToGroup(group, liveEnemies);
 
             enemyGroups.Add(group);
             groupIndex++;
@@ -253,6 +279,52 @@ public class TacticalBlackboard : MonoBehaviour
         return result;
     }
 
+    // Asigneaza un inamic unui grup, in functie de CollaborationMode.
+    // RandomRoundRobin = ordine ciclica (comportamentul original).
+    // NearestEnemy     = inamicul cel mai apropiat de centrul grupului.
+    // FocusFire        = acelasi inamic pentru toate grupurile (primul viu).
+    void AssignTargetToGroup(EnemyGroup group, List<Transform> liveEnemies)
+    {
+        if (liveEnemies == null || liveEnemies.Count == 0)
+        {
+            group.assignedEnemy = null;
+            return;
+        }
+
+        ExperimentConfig cfg = ExperimentConfig.Instance;
+        CollaborationMode mode = cfg != null ? cfg.collaborationMode
+                                             : CollaborationMode.RandomRoundRobin;
+
+        switch (mode)
+        {
+            case CollaborationMode.FocusFire:
+                // Toate grupurile concentreaza focul pe primul inamic viu.
+                group.assignedEnemy = liveEnemies[0];
+                break;
+
+            case CollaborationMode.NearestEnemy:
+                {
+                    Vector3 center = GetGroupCenter(group);
+                    Transform best = null;
+                    float minDist = Mathf.Infinity;
+                    foreach (Transform e in liveEnemies)
+                    {
+                        float d = Vector3.Distance(center, e.position);
+                        if (d < minDist) { minDist = d; best = e; }
+                    }
+                    group.assignedEnemy = best;
+                    break;
+                }
+
+            case CollaborationMode.RandomRoundRobin:
+            default:
+                // groupID e setat inainte de apel; ciclam peste inamicii vii.
+                group.assignedEnemy = liveEnemies[group.groupID % liveEnemies.Count];
+                break;
+        }
+    }
+
+
     void ReassignDeadEnemyTargets()
     {
         List<Transform> liveEnemies = null;
@@ -281,24 +353,11 @@ public class TacticalBlackboard : MonoBehaviour
                 continue;
             }
 
-            Vector3 center = GetGroupCenter(group);
-            Transform best = null;
-            float minDist = Mathf.Infinity;
-            foreach (Transform e in liveEnemies)
-            {
-                float d = Vector3.Distance(center, e.position);
-                if (d < minDist)
-                {
-                    minDist = d;
-                    best = e;
-                }
-            }
+            Transform previous = group.assignedEnemy;
+            AssignTargetToGroup(group, liveEnemies);
 
-            if (best != null && best != group.assignedEnemy)
-            {
-                group.assignedEnemy = best;
-                Debug.Log($"[Blackboard] Grup {group.groupID} reasignat -> {best.name}");
-            }
+            if (group.assignedEnemy != null && group.assignedEnemy != previous)
+                Debug.Log($"[Blackboard] Grup {group.groupID} reasignat -> {group.assignedEnemy.name}");
         }
     }
 

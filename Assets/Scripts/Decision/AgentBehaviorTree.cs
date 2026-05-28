@@ -30,6 +30,36 @@ public class AgentBehaviorTree : MonoBehaviour
     [HideInInspector]
     public Transform currentCombatTarget;
 
+    // ── Cunoastere locala despre inamic (folosit la CommunicationMode.LocalBroadcast) ──
+    // In modul Blackboard aceste campuri sunt ignorate (toata lumea "stie" prin starea globala).
+    [HideInInspector] public bool knowsEnemy = false;
+    [HideInInspector] public Vector3 knownEnemyPosition;
+    [HideInInspector] public float timeLearnedEnemy = -1f;
+
+    // Helper: agentul "stie" de inamic? In Blackboard = starea globala; in Local = flagul propriu.
+    public bool KnowsEnemy()
+    {
+        if (blackboard == null) return false;
+        var cfg = ExperimentConfig.Instance;
+        if (cfg == null || cfg.communicationMode == CommunicationMode.Blackboard)
+            return blackboard.enemySpotted;
+        return knowsEnemy;
+    }
+
+    // Apelat de Blackboard cand un raport ajunge la acest agent.
+    public void ReceiveEnemyReport(Vector3 position)
+    {
+        if (!knowsEnemy) timeLearnedEnemy = Time.time;
+        knowsEnemy = true;
+        knownEnemyPosition = position;
+    }
+
+    public void ClearEnemyKnowledge()
+    {
+        knowsEnemy = false;
+        timeLearnedEnemy = -1f;
+    }
+
     private BTNode behaviorTree;
     private AgentController agentController;
     private PerceptionModule perception;
@@ -169,7 +199,7 @@ public class AgentBehaviorTree : MonoBehaviour
             ),
 
             new BTSequence(
-                new BTCondition(() => blackboard != null &&
+                new BTCondition(() => KnowsEnemy() && blackboard != null &&
                     blackboard.combatState == CombatState.Engaging),
                 new BTAction(() => {
                     if (blackboard.mainEnemy == null) return NodeState.Failure;
@@ -215,7 +245,7 @@ public class AgentBehaviorTree : MonoBehaviour
             ),
 
             new BTSequence(
-                new BTCondition(() => blackboard != null &&
+                new BTCondition(() => KnowsEnemy() && blackboard != null &&
                     (blackboard.combatState == CombatState.Engaging ||
                      blackboard.combatState == CombatState.Combat)),
                 new BTAction(MaintainFormation)
@@ -245,7 +275,7 @@ public class AgentBehaviorTree : MonoBehaviour
             ),
 
             new BTSequence(
-                new BTCondition(() => blackboard != null &&
+                new BTCondition(() => KnowsEnemy() && blackboard != null &&
                     (blackboard.combatState == CombatState.Engaging ||
                      blackboard.combatState == CombatState.Combat)),
                 new BTAction(MaintainFormation)
