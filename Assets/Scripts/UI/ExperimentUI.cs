@@ -52,7 +52,7 @@ public class ExperimentUI : MonoBehaviour
         ObstacleManager obs = ObstacleManager.Instance;
 
         // Inaltime fixa, NU Screen.height (care da probleme la scale-ul ferestrei Game).
-        GUILayout.BeginArea(new Rect(10, 10, panelWidth, 560), box);
+        GUILayout.BeginArea(new Rect(10, 10, panelWidth, 680), box);
         GUILayout.BeginVertical();
 
         // ── CONTROALE ─────────────────────────────
@@ -60,6 +60,14 @@ public class ExperimentUI : MonoBehaviour
 
         if (cfg != null)
         {
+            GUILayout.Space(4);
+            GUILayout.Label("Perceptie: " + cfg.perceptionMode, label);
+            if (GUILayout.Button("Schimba perceptia", btn))
+            {
+                int n = ((int)cfg.perceptionMode + 1) % 4;
+                cfg.perceptionMode = (PerceptionMode)n;
+            }
+
             GUILayout.Space(4);
             GUILayout.Label("Comunicare: " + cfg.communicationMode, label);
             if (GUILayout.Button("Schimba comunicarea", btn))
@@ -112,6 +120,8 @@ public class ExperimentUI : MonoBehaviour
             GUILayout.Label("Timp scurs: " + m.elapsedTime.ToString("F2") + " s" +
                 (m.timerRunning ? "  [ruleaza]" : ""), label);
 
+            GUILayout.Label("Timp detectie: " +
+                (m.detectionTime >= 0 ? m.detectionTime.ToString("F2") + " s" : "-"), label);
             GUILayout.Label("Reactie (contact->combat): " +
                 (m.reactionTime >= 0 ? m.reactionTime.ToString("F2") + " s" : "-"), label);
 

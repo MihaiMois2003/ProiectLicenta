@@ -12,6 +12,8 @@ public class MetricsCollector : MonoBehaviour
     public bool timerRunning = false;
     public float elapsedTime = 0f;          // timp de la primul contact
     public float timeFirstContact = -1f;    // momentul (Time.time) primului Engaging
+    public float timeSceneStart = -1f;      // momentul (Time.time) pornirii masuratorii
+    public float detectionTime = -1f;       // timeFirstContact - timeSceneStart (cat dureaza sa fie gasit)
     public float timeFirstCombat = -1f;     // momentul primului Combat (primul agent in lupta)
     public float reactionTime = -1f;        // timeFirstCombat - timeFirstContact
     public float timeAllEnemiesDead = -1f;  // elapsedTime cand a murit ultimul inamic
@@ -43,6 +45,7 @@ public class MetricsCollector : MonoBehaviour
     void Start()
     {
         bb = TacticalBlackboard.Instance;
+        timeSceneStart = Time.time;
     }
 
     public void ResetRun()
@@ -50,6 +53,8 @@ public class MetricsCollector : MonoBehaviour
         timerRunning = false;
         elapsedTime = 0f;
         timeFirstContact = -1f;
+        timeSceneStart = Time.time;
+        detectionTime = -1f;
         timeFirstCombat = -1f;
         reactionTime = -1f;
         timeAllEnemiesDead = -1f;
@@ -70,6 +75,7 @@ public class MetricsCollector : MonoBehaviour
             firstContactSeen = true;
             timerRunning = true;
             timeFirstContact = Time.time;
+            detectionTime = timeFirstContact - timeSceneStart;
         }
 
         if (timerRunning && !finished)

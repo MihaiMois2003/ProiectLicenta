@@ -235,11 +235,10 @@ public class AgentBehaviorTree : MonoBehaviour
             ),
 
             new BTSequence(
-                new BTCondition(() => perception.CanSeeEnemies()),
+                new BTCondition(() => perception.HasRememberedEnemy()),
                 new BTAction(() => {
-                    Transform enemy = perception.GetNearestEnemy();
-                    if (enemy == null) return NodeState.Failure;
-                    blackboard?.ReportEnemy(enemy.position, agentID);
+                    Vector3 pos = perception.GetRememberedEnemyPosition();
+                    blackboard?.ReportEnemy(pos, agentID);
                     return NodeState.Success;
                 })
             ),
@@ -265,11 +264,10 @@ public class AgentBehaviorTree : MonoBehaviour
             ),
 
             new BTSequence(
-                new BTCondition(() => perception.CanSeeEnemies()),
+                new BTCondition(() => perception.HasRememberedEnemy()),
                 new BTAction(() => {
-                    Transform enemy = perception.GetNearestEnemy();
-                    if (enemy == null) return NodeState.Failure;
-                    blackboard?.ReportEnemy(enemy.position, agentID);
+                    Vector3 pos = perception.GetRememberedEnemyPosition();
+                    blackboard?.ReportEnemy(pos, agentID);
                     return NodeState.Success;
                 })
             ),
