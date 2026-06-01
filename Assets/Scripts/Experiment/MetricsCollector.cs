@@ -32,9 +32,16 @@ public class MetricsCollector : MonoBehaviour
     public float totalEnemyHP = 0f;
     public bool finished = false;
 
+    [Header("Eficienta (readonly)")]
+    [Tooltip("Distanta totala parcursa de toti agentii (planificare proasta = drum irosit).")]
+    public float totalDistanceTraveled = 0f;
+    [Tooltip("Damage 'irosit' = damage dat peste HP-ul tintei (overkill cumulat).")]
+    public float overkillDamage = 0f;
+
     private TacticalBlackboard bb;
     private bool firstContactSeen = false;
     private bool firstCombatSeen = false;
+    private Dictionary<Transform, Vector3> lastPositions = new Dictionary<Transform, Vector3>();
 
     void Awake()
     {
@@ -63,6 +70,9 @@ public class MetricsCollector : MonoBehaviour
         finished = false;
         firstContactSeen = false;
         firstCombatSeen = false;
+        totalDistanceTraveled = 0f;
+        overkillDamage = 0f;
+        lastPositions.Clear();
     }
 
     void Update()
@@ -128,6 +138,15 @@ public class MetricsCollector : MonoBehaviour
             {
                 agentsAlive++;
                 totalAgentHP += hs.currentHP;
+
+                // Acumuleaza distanta parcursa (doar cat ruleaza cronometrul).
+                if (timerRunning)
+                {
+                    Vector3 cur = a.transform.position;
+                    if (lastPositions.TryGetValue(a.transform, out Vector3 prev))
+                        totalDistanceTraveled += Vector3.Distance(prev, cur);
+                    lastPositions[a.transform] = cur;
+                }
             }
         }
 

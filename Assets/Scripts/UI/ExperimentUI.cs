@@ -15,6 +15,7 @@ public class ExperimentUI : MonoBehaviour
     GUIStyle box, label, btn, header;
     bool stylesReady = false;
     Texture2D bgTex;
+    TacticalBlackboard bb_ref;
 
     void BuildStyles()
     {
@@ -52,7 +53,7 @@ public class ExperimentUI : MonoBehaviour
         ObstacleManager obs = ObstacleManager.Instance;
 
         // Inaltime fixa, NU Screen.height (care da probleme la scale-ul ferestrei Game).
-        GUILayout.BeginArea(new Rect(10, 10, panelWidth, 680), box);
+        GUILayout.BeginArea(new Rect(10, 10, panelWidth, 760), box);
         GUILayout.BeginVertical();
 
         // ── CONTROALE ─────────────────────────────
@@ -71,20 +72,29 @@ public class ExperimentUI : MonoBehaviour
             GUILayout.Space(4);
             GUILayout.Label("Comunicare: " + cfg.communicationMode, label);
             if (GUILayout.Button("Schimba comunicarea", btn))
-                cfg.communicationMode =
-                    cfg.communicationMode == CommunicationMode.Blackboard
-                        ? CommunicationMode.LocalBroadcast
-                        : CommunicationMode.Blackboard;
+            {
+                int n = ((int)cfg.communicationMode + 1) % 3;
+                cfg.communicationMode = (CommunicationMode)n;
+            }
 
-            if (cfg.communicationMode == CommunicationMode.LocalBroadcast)
+            if (cfg.communicationMode == CommunicationMode.LocalBroadcast ||
+                cfg.communicationMode == CommunicationMode.Relay)
                 GUILayout.Label("   commRange: " + cfg.commRange.ToString("F1"), label);
 
             GUILayout.Space(4);
             GUILayout.Label("Colaborare: " + cfg.collaborationMode, label);
             if (GUILayout.Button("Schimba colaborarea", btn))
             {
-                int next = ((int)cfg.collaborationMode + 1) % 3;
+                int next = ((int)cfg.collaborationMode + 1) % 4;
                 cfg.collaborationMode = (CollaborationMode)next;
+            }
+
+            GUILayout.Space(4);
+            GUILayout.Label("Planificare: " + cfg.planningMode, label);
+            if (GUILayout.Button("Schimba planificarea", btn))
+            {
+                int next = ((int)cfg.planningMode + 1) % 3;
+                cfg.planningMode = (PlanningMode)next;
             }
         }
         else
@@ -117,6 +127,11 @@ public class ExperimentUI : MonoBehaviour
 
         if (m != null)
         {
+            if (bb_ref == null) bb_ref = TacticalBlackboard.Instance;
+            if (bb_ref != null)
+                GUILayout.Label("Stare: " + bb_ref.combatState +
+                    (bb_ref.phase2Active ? " (Faza2)" : ""), label);
+
             GUILayout.Label("Timp scurs: " + m.elapsedTime.ToString("F2") + " s" +
                 (m.timerRunning ? "  [ruleaza]" : ""), label);
 
@@ -135,6 +150,8 @@ public class ExperimentUI : MonoBehaviour
                 "  (HP " + m.totalAgentHP.ToString("F0") + ")", label);
             GUILayout.Label("Inamici vii: " + m.enemiesAlive +
                 "  (HP " + m.totalEnemyHP.ToString("F0") + ")", label);
+            GUILayout.Label("Distanta parcursa: " +
+                m.totalDistanceTraveled.ToString("F0") + " u", label);
 
             GUILayout.Space(4);
             if (m.finished)

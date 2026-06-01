@@ -69,6 +69,11 @@ public class TacticalBlackboard : MonoBehaviour
         else Destroy(gameObject);
     }
 
+    private float relayTimer = 0f;
+    [Header("Relay")]
+    [Tooltip("La fiecare cat timp (sec) se propaga un val de informatie in modul Relay.")]
+    public float relayPropagationInterval = 0.4f;
+
     void Update()
     {
         if (combatState == CombatState.Combat)
@@ -81,6 +86,18 @@ public class TacticalBlackboard : MonoBehaviour
         if (enemySpotted && Time.time - timeEnemyWasSpotted > 10f)
             ClearEnemyInfo();
 
+        // Propagare Relay: cine stie retransmite vecinilor la intervale (valuri).
+        ExperimentConfig cfg = ExperimentConfig.Instance;
+        if (cfg != null && cfg.communicationMode == CommunicationMode.Relay && enemySpotted)
+        {
+            relayTimer += Time.deltaTime;
+            if (relayTimer >= relayPropagationInterval)
+            {
+                relayTimer = 0f;
+                PropagateRelay(cfg.commRange);
+            }
+        }
+
         // In Faza 2, daca tinta unui grup a murit, reasigneaza alta tinta vie
         if (phase2Active)
         {
@@ -92,6 +109,28 @@ public class TacticalBlackboard : MonoBehaviour
             {
                 reversalTimer = 0f;
                 CheckRolesReversal();
+            }
+        }
+    }
+
+    // Un val de propagare: fiecare agent care STIE anunta vecinii din commRange
+    // care INCA nu stiu. Apelat periodic => informatia se raspandeste din aproape
+    // in aproape, nu instant.
+    void PropagateRelay(float range)
+    {
+        // Colecteaza cine stie acum (snapshot, ca sa nu propagam in cascada intr-un singur tick).
+        List<AgentBehaviorTree> knowers = new List<AgentBehaviorTree>();
+        foreach (AgentBehaviorTree a in allAgents)
+            if (a != null && a.knowsEnemy) knowers.Add(a);
+
+        foreach (AgentBehaviorTree src in knowers)
+        {
+            Vector3 origin = src.transform.position;
+            foreach (AgentBehaviorTree dst in allAgents)
+            {
+                if (dst == null || dst.knowsEnemy) continue;
+                if (Vector3.Distance(origin, dst.transform.position) <= range)
+                    dst.ReceiveEnemyReport(src.knownEnemyPosition);
             }
         }
     }
@@ -127,20 +166,25 @@ public class TacticalBlackboard : MonoBehaviour
 
         // Propaga raportul in functie de modul de comunicare.
         ExperimentConfig cfg = ExperimentConfig.Instance;
-        if (cfg == null || cfg.communicationMode == CommunicationMode.Blackboard)
+        CommunicationMode mode = cfg != null ? cfg.communicationMode
+                                             : CommunicationMode.Blackboard;
+
+        if (mode == CommunicationMode.Blackboard)
         {
             // Cunoastere globala: toti agentii afla instant.
             foreach (AgentBehaviorTree a in allAgents)
                 if (a != null) a.ReceiveEnemyReport(position);
         }
-        else // LocalBroadcast
+        else
         {
-            // Doar agentii aflati in commRange fata de raportor afla.
+            // LocalBroadcast SI Relay: raportorul anunta vecinii din commRange.
+            // Diferenta: la Relay, vecinii care au aflat vor propaga MAI DEPARTE
+            //            in PropagateRelay() (apelat din Update), in valuri.
             AgentBehaviorTree reporter = GetAgentByID(agentID);
             if (reporter != null)
             {
                 Vector3 origin = reporter.transform.position;
-                float r = cfg.commRange;
+                float r = cfg != null ? cfg.commRange : 12f;
                 foreach (AgentBehaviorTree a in allAgents)
                 {
                     if (a == null) continue;
@@ -356,11 +400,52 @@ public class TacticalBlackboard : MonoBehaviour
                     break;
                 }
 
+            case CollaborationMode.Auction:
+                // Auction necesita vedere globala -> asigneaza toate grupurile odata.
+                AssignByAuction(liveEnemies);
+                break;
+
             case CollaborationMode.RandomRoundRobin:
             default:
                 // groupID e setat inainte de apel; ciclam peste inamicii vii.
                 group.assignedEnemy = liveEnemies[group.groupID % liveEnemies.Count];
                 break;
+        }
+    }
+
+    // ── AUCTION (licitatie) ─────────────────────────
+    // Fiecare grup liciteaza pe fiecare inamic (bid = 1/distanta). Asignam iterativ
+    // perechea cu cel mai mare bid, apoi penalizam inamicul deja luat ca sa
+    // distribuim grupurile (evitam sa se inghesuie toate pe acelasi inamic).
+    void AssignByAuction(List<Transform> liveEnemies)
+    {
+        if (enemyGroups.Count == 0 || liveEnemies.Count == 0) return;
+
+        // Cate grupuri are voie un inamic, ca sa fie echilibrat.
+        int cap = Mathf.CeilToInt((float)enemyGroups.Count / liveEnemies.Count);
+        Dictionary<Transform, int> load = new Dictionary<Transform, int>();
+        foreach (Transform e in liveEnemies) load[e] = 0;
+
+        // Construieste lista de licitatii (grup, inamic, bid).
+        foreach (EnemyGroup g in enemyGroups)
+        {
+            Vector3 center = GetGroupCenter(g);
+            Transform best = null;
+            float bestBid = -1f;
+
+            foreach (Transform e in liveEnemies)
+            {
+                float dist = Vector3.Distance(center, e.position);
+                float bid = 1f / Mathf.Max(0.1f, dist);
+
+                // Penalizeaza inamicii deja incarcati la capacitate.
+                if (load[e] >= cap) bid *= 0.25f;
+
+                if (bid > bestBid) { bestBid = bid; best = e; }
+            }
+
+            g.assignedEnemy = best;
+            if (best != null) load[best]++;
         }
     }
 

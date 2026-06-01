@@ -423,7 +423,9 @@ public class AgentBehaviorTree : MonoBehaviour
         Transform target = blackboard.GetAssignedEnemyForGroup(groupID);
         if (target == null) return NodeState.Failure;
 
-        agentController.MoveTo(target.position);
+        // Destinatia depinde de tehnica de planificare.
+        Vector3 dest = ComputeApproachDestination(target.position);
+        agentController.MoveTo(dest);
 
         // Roteaza liderul de grup catre tinta (ca sa intoarca formatia in directia buna)
         Vector3 dir = target.position - transform.position;
@@ -436,6 +438,74 @@ public class AgentBehaviorTree : MonoBehaviour
         }
 
         return NodeState.Running;
+    }
+
+    // ── PLANIFICARE: cum se apropie liderul de grup de tinta ──
+    // Reactive    = direct la tinta.
+    // Flanking    = pe un arc lateral fata de tinta (incercuire).
+    // CoverPoints = via cel mai apropiat punct de acoperire (langa obstacol).
+    Vector3 ComputeApproachDestination(Vector3 targetPos)
+    {
+        var cfg = ExperimentConfig.Instance;
+        PlanningMode mode = cfg != null ? cfg.planningMode : PlanningMode.Reactive;
+
+        switch (mode)
+        {
+            case PlanningMode.Flanking:
+                return ComputeFlankDestination(targetPos, cfg != null ? cfg.flankRadius : 6f);
+
+            case PlanningMode.CoverPoints:
+                return ComputeCoverDestination(targetPos);
+
+            case PlanningMode.Reactive:
+            default:
+                return targetPos;
+        }
+    }
+
+    // Fiecare grup ataca dintr-un unghi diferit, distribuit pe cerc dupa groupID.
+    Vector3 ComputeFlankDestination(Vector3 targetPos, float radius)
+    {
+        int totalGroups = (blackboard != null && blackboard.enemyGroups != null &&
+                           blackboard.enemyGroups.Count > 0)
+                           ? blackboard.enemyGroups.Count : 1;
+
+        // Unghi de baza per grup, distribuit uniform pe 360 grade.
+        float baseAngle = (360f / Mathf.Max(1, totalGroups)) * Mathf.Max(0, groupID);
+
+        // Mic offset bazat pe directia curenta agent->tinta, ca arcul sa fie fata de pozitia reala.
+        Vector3 toTarget = transform.position - targetPos;
+        toTarget.y = 0;
+        float startAngle = toTarget.sqrMagnitude > 0.01f
+            ? Mathf.Atan2(toTarget.x, toTarget.z) * Mathf.Rad2Deg
+            : 0f;
+
+        float angle = (startAngle + baseAngle) * Mathf.Deg2Rad;
+        Vector3 offset = new Vector3(Mathf.Sin(angle), 0, Mathf.Cos(angle)) * radius;
+        Vector3 candidate = targetPos + offset;
+
+        UnityEngine.AI.NavMeshHit hit;
+        if (UnityEngine.AI.NavMesh.SamplePosition(candidate, out hit, 4f,
+            UnityEngine.AI.NavMesh.AllAreas))
+            return hit.position;
+
+        return targetPos; // fallback
+    }
+
+    // Se apropie via cel mai apropiat punct de acoperire (TacticalCoverPoint) fata de drum.
+    Vector3 ComputeCoverDestination(Vector3 targetPos)
+    {
+        TacticalCoverPoint cover = TacticalCoverPoint.GetBestCover(
+            transform.position, targetPos);
+
+        if (cover == null) return targetPos; // nu exista cover-uri -> reactiv
+
+        // Daca inca nu am ajuns la cover, mergem la cover; altfel, spre tinta.
+        float distToCover = Vector3.Distance(transform.position, cover.transform.position);
+        if (distToCover > 2.5f)
+            return cover.transform.position;
+
+        return targetPos;
     }
 
     // Liderul grupului fuge haotic: alege puncte random pe harta care sunt
