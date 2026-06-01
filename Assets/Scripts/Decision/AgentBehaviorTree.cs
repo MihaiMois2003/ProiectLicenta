@@ -207,13 +207,46 @@ public class AgentBehaviorTree : MonoBehaviour
                     float dist = Vector3.Distance(
                         transform.position, blackboard.mainEnemy.position);
 
-                    if (dist <= 8f)
+                    // Ajuns la distanta de rally -> trecem in Rallying si asteptam echipa.
+                    if (dist <= blackboard.rallyDistance)
+                    {
+                        blackboard.combatState = CombatState.Rallying;
+                        blackboard.rallyStartTime = Time.time;
+                        return NodeState.Running;
+                    }
+
+                    agentController.MoveTo(blackboard.mainEnemy.position);
+                    return NodeState.Running;
+                })
+            ),
+
+            // RALLYING: Leaderul tine pozitia la rallyDistance si asteapta formatia.
+            new BTSequence(
+                new BTCondition(() => blackboard != null &&
+                    blackboard.combatState == CombatState.Rallying),
+                new BTAction(() => {
+                    if (blackboard.mainEnemy == null) return NodeState.Failure;
+
+                    // Destui in formatie (sau timeout) -> ATAC.
+                    if (blackboard.RallyComplete())
                     {
                         blackboard.combatState = CombatState.Combat;
                         return NodeState.Running;
                     }
 
-                    agentController.MoveTo(blackboard.mainEnemy.position);
+                    // Mentine distanta de rally: nu se napusteste, asteapta.
+                    float dist = Vector3.Distance(
+                        transform.position, blackboard.mainEnemy.position);
+                    if (dist < blackboard.rallyDistance - 1f)
+                    {
+                        // prea aproape, da inapoi un pas
+                        Vector3 away = (transform.position - blackboard.mainEnemy.position).normalized;
+                        agentController.MoveTo(transform.position + away * 2f);
+                    }
+                    else
+                    {
+                        agentController.Stop();
+                    }
                     return NodeState.Running;
                 })
             ),
@@ -246,6 +279,7 @@ public class AgentBehaviorTree : MonoBehaviour
             new BTSequence(
                 new BTCondition(() => KnowsEnemy() && blackboard != null &&
                     (blackboard.combatState == CombatState.Engaging ||
+                     blackboard.combatState == CombatState.Rallying ||
                      blackboard.combatState == CombatState.Combat)),
                 new BTAction(MaintainFormation)
             ),
@@ -275,6 +309,7 @@ public class AgentBehaviorTree : MonoBehaviour
             new BTSequence(
                 new BTCondition(() => KnowsEnemy() && blackboard != null &&
                     (blackboard.combatState == CombatState.Engaging ||
+                     blackboard.combatState == CombatState.Rallying ||
                      blackboard.combatState == CombatState.Combat)),
                 new BTAction(MaintainFormation)
             ),
@@ -322,6 +357,25 @@ public class AgentBehaviorTree : MonoBehaviour
 
         agentController.MoveTo(formationPos);
         return NodeState.Running;
+    }
+
+    // Cat de aproape e agentul de slotul lui de formatie (Faza 1). Folosit pentru rally.
+    public bool IsNearFormationSlot(float tolerance)
+    {
+        if (FormationManager.Instance == null) return true;
+        AgentBehaviorTree leader = blackboard?.GetLeader();
+        if (leader == null) return true;
+
+        Vector3 formationPos = FormationManager.Instance.GetFormationPosition(
+            leader.transform.position,
+            leader.transform.rotation,
+            formationRow,
+            formationIndexInRow,
+            formationTotalInRow);
+
+        Vector3 a = transform.position; a.y = 0;
+        Vector3 b = formationPos; b.y = 0;
+        return Vector3.Distance(a, b) <= tolerance;
     }
 
     NodeState Phase2MaintainFormation()

@@ -53,6 +53,7 @@ public class EnemyController : MonoBehaviour
 
         // Verifica eliberarea inamicilor secundari (HP < 75%)
         if (blackboard.combatState == CombatState.Engaging ||
+            blackboard.combatState == CombatState.Rallying ||
             blackboard.combatState == CombatState.Combat ||
             blackboard.phase2Active)
         {
@@ -80,9 +81,10 @@ public class EnemyController : MonoBehaviour
             // Combat Faza 1: stau pe loc, Leader-ul e aproape, lupta
             StopMoving();
         }
-        else if (blackboard.combatState == CombatState.Engaging)
+        else if (blackboard.combatState == CombatState.Engaging ||
+                 blackboard.combatState == CombatState.Rallying)
         {
-            // Engaging Faza 1: FUG de Leader pana cand ajunge in range
+            // Engaging + Rallying Faza 1: FUG de Leader cat timp echipa se aduna
             Flee();
         }
         else

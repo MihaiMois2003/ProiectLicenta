@@ -5,6 +5,7 @@ public enum CombatState
 {
     Idle,
     Engaging,
+    Rallying,
     Combat
 }
 
@@ -24,6 +25,18 @@ public class TacticalBlackboard : MonoBehaviour
 
     [Header("Combat State")]
     public CombatState combatState = CombatState.Idle;
+
+    [Header("Rally (adunare in formatie inainte de atac)")]
+    [Tooltip("Distanta la care Leaderul se opreste si asteapta echipa.")]
+    public float rallyDistance = 11f;
+    [Tooltip("Cat de aproape de pozitia lui de formatie trebuie sa fie un agent ca sa conteze 'in formatie'.")]
+    public float formationTolerance = 2.5f;
+    [Range(0f, 1f)]
+    [Tooltip("Ce fractie din echipa non-sniper trebuie sa fie in formatie ca sa porneasca atacul.")]
+    public float rallyReadyFraction = 0.6f;
+    [Tooltip("Timp maxim de asteptare in Rally inainte de a forta atacul (anti-blocaj).")]
+    public float rallyTimeout = 8f;
+    [HideInInspector] public float rallyStartTime = -1f;
 
     [Header("Main Enemy")]
     public Transform mainEnemy;
@@ -144,7 +157,8 @@ public class TacticalBlackboard : MonoBehaviour
         foreach (AgentBehaviorTree a in allAgents)
             if (a != null) a.ClearEnemyKnowledge();
         // Nu resetam combatState daca suntem deja in Combat sau Faza 2
-        if (combatState == CombatState.Engaging && !phase2Active)
+        if ((combatState == CombatState.Engaging || combatState == CombatState.Rallying)
+            && !phase2Active)
             combatState = CombatState.Idle;
     }
 
@@ -153,6 +167,32 @@ public class TacticalBlackboard : MonoBehaviour
         foreach (var agent in allAgents)
             if (agent.role == AgentRole.Leader) return agent;
         return null;
+    }
+
+    // Fractia de agenti non-sniper, non-leader, vii, care sunt aproape de pozitia lor de formatie.
+    public float FormationReadyFraction()
+    {
+        int total = 0, ready = 0;
+        foreach (AgentBehaviorTree a in allAgents)
+        {
+            if (a == null) continue;
+            if (a.role == AgentRole.Sniper || a.role == AgentRole.Leader) continue;
+            HealthSystem hs = a.GetComponent<HealthSystem>();
+            if (hs == null || hs.isDead) continue;
+
+            total++;
+            if (a.IsNearFormationSlot(formationTolerance)) ready++;
+        }
+        if (total == 0) return 1f; // nimeni de asteptat
+        return (float)ready / total;
+    }
+
+    // Trebuie sa pornim atacul? (destui in formatie SAU timeout)
+    public bool RallyComplete()
+    {
+        if (FormationReadyFraction() >= rallyReadyFraction) return true;
+        if (rallyStartTime >= 0 && Time.time - rallyStartTime >= rallyTimeout) return true;
+        return false;
     }
 
     public AgentBehaviorTree GetAgentByID(string id)

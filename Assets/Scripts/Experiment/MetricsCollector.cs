@@ -70,7 +70,11 @@ public class MetricsCollector : MonoBehaviour
         if (bb == null) { bb = TacticalBlackboard.Instance; if (bb == null) return; }
 
         // Start cronometru la primul contact
-        if (!firstContactSeen && bb.combatState == CombatState.Engaging)
+        if (!firstContactSeen &&
+            (bb.combatState == CombatState.Engaging ||
+             bb.combatState == CombatState.Rallying ||
+             bb.combatState == CombatState.Combat ||
+             bb.phase2Active))
         {
             firstContactSeen = true;
             timerRunning = true;
