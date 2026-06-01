@@ -6,10 +6,20 @@ public class EnemyController : MonoBehaviour
     [Header("Settings")]
     public float normalSpeed = 2f;
     [Tooltip("Viteza cand fuge de Leader in Faza 1 (Engaging). " +
-             "TINE-O MAI MICA decat viteza Leader-ului ca sa fie prins!")]
-    public float fleeSpeed = 3f;
+             "Tine-o usor sub viteza Leader-ului ca sa fie prins, dar nu prea mica.")]
+    public float fleeSpeed = 3.2f;
     public float chaseSpeed = 4f;
     public float patrolRadius = 20f;
+
+    [Header("Fuga haotica")]
+    [Tooltip("Cat de des isi schimba directia de fuga (secunde). Mic = mai haotic.")]
+    public float fleeRetargetInterval = 0.6f;
+    [Tooltip("Imprastiere unghiulara fata de directia 'departe de leader' (grade).")]
+    public float fleeAngleJitter = 75f;
+    [Tooltip("Distanta pana la urmatorul punct de fuga.")]
+    public float fleeStepDistance = 9f;
+
+    private float fleeTimer = 0f;
 
     [Header("Secondary Enemies")]
     public GameObject secondaryEnemyPrefab1;
@@ -139,37 +149,68 @@ public class EnemyController : MonoBehaviour
     void Flee()
     {
         navAgent.speed = fleeSpeed;
+        navAgent.isStopped = false;
 
-        if (!navAgent.pathPending &&
-            navAgent.remainingDistance <= navAgent.stoppingDistance)
+        fleeTimer += Time.deltaTime;
+
+        bool reached = !navAgent.pathPending &&
+            navAgent.remainingDistance <= navAgent.stoppingDistance + 0.1f;
+        bool noPath = !navAgent.hasPath && !navAgent.pathPending;
+
+        // Reschimba directia periodic (haotic), cand ajunge, SAU daca a ramas fara drum.
+        if (fleeTimer >= fleeRetargetInterval || reached || noPath)
+        {
+            fleeTimer = 0f;
             SetNewFleeTarget();
+        }
     }
 
     void SetNewFleeTarget()
     {
         AgentBehaviorTree leader = blackboard?.GetLeader();
-        if (leader == null) { SetNewPatrolTarget(); return; }
 
-        for (int i = 0; i < 15; i++)
+        // Directia de baza: departe de leader (daca exista), altfel directie random.
+        Vector3 awayDir;
+        if (leader != null)
         {
-            Vector3 randomPoint = new Vector3(
-                Random.Range(-20f, 20f),
-                0,
-                Random.Range(-20f, 20f));
+            awayDir = transform.position - leader.transform.position;
+            awayDir.y = 0;
+            if (awayDir.sqrMagnitude < 0.01f)
+                awayDir = Random.insideUnitSphere;
+        }
+        else
+        {
+            awayDir = Random.insideUnitSphere;
+        }
+        awayDir.y = 0;
+        awayDir.Normalize();
 
-            float distFromLeader = Vector3.Distance(
-                randomPoint, leader.transform.position);
-            if (distFromLeader < 10f) continue;
+        // Aplica jitter unghiular mare ca sa para haotic (zig-zag).
+        float jitter = Random.Range(-fleeAngleJitter, fleeAngleJitter);
+        Vector3 dir = Quaternion.Euler(0, jitter, 0) * awayDir;
+
+        // Incearca puncte la distante descrescatoare; primul valid pe NavMesh castiga.
+        for (int i = 0; i < 8; i++)
+        {
+            float dist = fleeStepDistance * Random.Range(0.6f, 1.2f);
+            Vector3 candidate = transform.position + dir * dist;
 
             NavMeshHit hit;
-            if (NavMesh.SamplePosition(randomPoint, out hit, 3f, NavMesh.AllAreas))
+            if (NavMesh.SamplePosition(candidate, out hit, 4f, NavMesh.AllAreas))
             {
                 navAgent.SetDestination(hit.position);
                 return;
             }
+            // Daca nu merge, roteste directia si reincearca (cauta o iesire).
+            dir = Quaternion.Euler(0, Random.Range(-90f, 90f), 0) * dir;
         }
 
-        SetNewPatrolTarget();
+        // ANTI-BLOCAJ garantat: daca nimic nu a mers, sample direct langa pozitia curenta.
+        NavMeshHit fallbackHit;
+        if (NavMesh.SamplePosition(
+                transform.position + Random.insideUnitSphere * 5f,
+                out fallbackHit, 6f, NavMesh.AllAreas))
+            navAgent.SetDestination(fallbackHit.position);
     }
 
     // In reversal: urmareste grupul de agenti asignat

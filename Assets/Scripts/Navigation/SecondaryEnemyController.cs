@@ -9,6 +9,12 @@ public class SecondaryEnemyController : MonoBehaviour
     public float fleeSpeed = 3.5f;
     public float chaseSpeed = 4f;
 
+    [Header("Fuga haotica")]
+    public float fleeRetargetInterval = 0.6f;
+    public float fleeAngleJitter = 75f;
+    public float fleeStepDistance = 11f;
+    private float fleeTimer = 0f;
+
     private NavMeshAgent navAgent;
     private TacticalBlackboard blackboard;
     private bool isLiberated = false;
@@ -70,85 +76,77 @@ public class SecondaryEnemyController : MonoBehaviour
     void FleeFromAssignedGroup()
     {
         navAgent.speed = fleeSpeed;
+        navAgent.isStopped = false;
 
-        if (!navAgent.pathPending &&
-            navAgent.remainingDistance <= navAgent.stoppingDistance)
+        fleeTimer += Time.deltaTime;
+
+        bool reached = !navAgent.pathPending &&
+            navAgent.remainingDistance <= navAgent.stoppingDistance + 0.1f;
+        bool noPath = !navAgent.hasPath && !navAgent.pathPending;
+
+        if (fleeTimer >= fleeRetargetInterval || reached || noPath)
+        {
+            fleeTimer = 0f;
             SetNewFleeTarget();
+        }
     }
 
     void SetNewFleeTarget()
     {
         // Gaseste grupul care ma urmareste pe mine
         EnemyGroup myGroup = blackboard.GetGroupAssignedToEnemy(transform);
-        Vector3 threatCenter;
+        Vector3 awayDir;
 
         if (myGroup != null && myGroup.agents.Count > 0)
         {
-            // Calculeaza centrul agentilor vii din grup
             Vector3 sum = Vector3.zero;
             int count = 0;
             foreach (AgentBehaviorTree a in myGroup.agents)
             {
+                if (a == null) continue;
                 HealthSystem hs = a.GetComponent<HealthSystem>();
                 if (hs == null || hs.isDead) continue;
                 sum += a.transform.position;
                 count++;
             }
-            threatCenter = count > 0 ? sum / count : transform.position;
+            Vector3 threatCenter = count > 0 ? sum / count : transform.position;
+            awayDir = transform.position - threatCenter;
         }
         else
         {
-            // Nimeni asignat -> fuge la random
-            SetRandomFleeTarget();
-            return;
+            awayDir = Random.insideUnitSphere;
         }
 
-        // Alege un punct in directia opusa fata de grup
-        Vector3 awayDir = (transform.position - threatCenter);
         awayDir.y = 0;
-        if (awayDir.sqrMagnitude < 0.1f)
-        {
-            SetRandomFleeTarget();
-            return;
-        }
+        if (awayDir.sqrMagnitude < 0.01f)
+            awayDir = Random.insideUnitSphere;
+        awayDir.y = 0;
         awayDir.Normalize();
 
-        // Cauta un punct valid pe NavMesh la 10-15 unitati in directia opusa
-        for (int i = 0; i < 10; i++)
+        // Jitter unghiular -> fuga haotica
+        float jitter = Random.Range(-fleeAngleJitter, fleeAngleJitter);
+        Vector3 dir = Quaternion.Euler(0, jitter, 0) * awayDir;
+
+        for (int i = 0; i < 8; i++)
         {
-            float fleeDist = Random.Range(10f, 15f);
-            Vector3 candidate = transform.position +
-                awayDir * fleeDist +
-                new Vector3(Random.Range(-3f, 3f), 0, Random.Range(-3f, 3f));
+            float fleeDist = fleeStepDistance * Random.Range(0.6f, 1.2f);
+            Vector3 candidate = transform.position + dir * fleeDist;
 
             NavMeshHit hit;
-            if (NavMesh.SamplePosition(candidate, out hit, 3f, NavMesh.AllAreas))
+            if (NavMesh.SamplePosition(candidate, out hit, 4f, NavMesh.AllAreas))
             {
                 navAgent.SetDestination(hit.position);
                 return;
             }
+            dir = Quaternion.Euler(0, Random.Range(-90f, 90f), 0) * dir;
         }
 
-        // Fallback
-        SetRandomFleeTarget();
-    }
-
-    void SetRandomFleeTarget()
-    {
-        for (int i = 0; i < 15; i++)
-        {
-            Vector3 randomPoint = new Vector3(
-                Random.Range(-20f, 20f),
-                0,
-                Random.Range(-20f, 20f));
-
-            NavMeshHit hit;
-            if (NavMesh.SamplePosition(randomPoint, out hit, 3f, NavMesh.AllAreas))
-            {
-                navAgent.SetDestination(hit.position);
-                return;
-            }
-        }
+        // ANTI-BLOCAJ garantat
+        NavMeshHit fallbackHit;
+        if (NavMesh.SamplePosition(
+                transform.position + Random.insideUnitSphere * 5f,
+                out fallbackHit, 6f, NavMesh.AllAreas))
+            navAgent.SetDestination(fallbackHit.position);
     }
 
     void ChaseAssignedGroup()
