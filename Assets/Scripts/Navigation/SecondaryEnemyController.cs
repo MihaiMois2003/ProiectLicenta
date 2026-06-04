@@ -4,16 +4,16 @@ using UnityEngine.AI;
 public class SecondaryEnemyController : MonoBehaviour
 {
     [Header("Settings")]
-    [Tooltip("Viteza cand fuge de agenti in Faza 2 normala. " +
+    [Tooltip("Viteza de plimbare haotica in Faza 2 normala. " +
              "Tine-o sub catchUpSpeed-ul agentilor ca sa fie prinsi.")]
-    public float fleeSpeed = 3.5f;
-    public float chaseSpeed = 4f;
+    public float wanderSpeed = 3f;
+    public float chaseSpeed = 5.5f;
 
-    [Header("Fuga haotica")]
-    public float fleeRetargetInterval = 0.6f;
-    public float fleeAngleJitter = 75f;
-    public float fleeStepDistance = 11f;
-    private float fleeTimer = 0f;
+    [Header("Plimbare haotica")]
+    public float wanderRetargetInterval = 1.5f;
+    public float fleeRetargetInterval = 0.8f;
+    public float mapHalfExtent = 20f;
+    private float wanderTimer = 0f;
 
     private NavMeshAgent navAgent;
     private TacticalBlackboard blackboard;
@@ -47,8 +47,8 @@ public class SecondaryEnemyController : MonoBehaviour
         }
         else
         {
-            // Faza 2 normala: fuge de grupul de agenti care il urmareste
-            FleeFromAssignedGroup();
+            // Faza 2 normala: se plimba haotic prin toata harta (trage din mers)
+            Wander();
         }
     }
 
@@ -56,14 +56,14 @@ public class SecondaryEnemyController : MonoBehaviour
     {
         isLiberated = true;
         navAgent.enabled = true;
-        navAgent.speed = fleeSpeed;
+        navAgent.speed = wanderSpeed;
 
         // Fallback: daca Start() inca nu a rulat, ia referinta direct
         if (blackboard == null)
             blackboard = TacticalBlackboard.Instance;
 
-        // Nu setam o destinatie aici - Update() va apela FleeFromAssignedGroup()
-        // care va asigna o destinatie corecta dupa ce ActivatePhase2() creeaza grupurile.
+        // Nu setam o destinatie aici - Update() va apela Wander()
+        // dupa ce ActivatePhase2() creeaza grupurile.
     }
 
     void StopMoving()
@@ -72,35 +72,35 @@ public class SecondaryEnemyController : MonoBehaviour
             navAgent.ResetPath();
     }
 
-    // Faza 2 normala: fuge de centrul grupului care il urmareste
-    void FleeFromAssignedGroup()
+    // Faza 2 normala: fuga HAOTICA de grupul de agenti asignat. Nu se blocheaza.
+    void Wander()
     {
-        navAgent.speed = fleeSpeed;
+        if (!navAgent.isOnNavMesh) return;
         navAgent.isStopped = false;
+        navAgent.speed = wanderSpeed;
 
-        fleeTimer += Time.deltaTime;
+        wanderTimer += Time.deltaTime;
 
         bool reached = !navAgent.pathPending &&
-            navAgent.remainingDistance <= navAgent.stoppingDistance + 0.1f;
+            navAgent.remainingDistance <= navAgent.stoppingDistance + 0.2f;
         bool noPath = !navAgent.hasPath && !navAgent.pathPending;
 
-        if (fleeTimer >= fleeRetargetInterval || reached || noPath)
+        if (wanderTimer >= fleeRetargetInterval || reached || noPath)
         {
-            fleeTimer = 0f;
-            SetNewFleeTarget();
+            wanderTimer = 0f;
+            SetFleeWanderTarget();
         }
     }
 
-    void SetNewFleeTarget()
+    // Centrul grupului care il urmareste (sau al tuturor agentilor ca fallback).
+    Vector3 GetThreatCenter()
     {
-        // Gaseste grupul care ma urmareste pe mine
         EnemyGroup myGroup = blackboard.GetGroupAssignedToEnemy(transform);
-        Vector3 awayDir;
+        Vector3 sum = Vector3.zero;
+        int count = 0;
 
         if (myGroup != null && myGroup.agents.Count > 0)
         {
-            Vector3 sum = Vector3.zero;
-            int count = 0;
             foreach (AgentBehaviorTree a in myGroup.agents)
             {
                 if (a == null) continue;
@@ -109,44 +109,88 @@ public class SecondaryEnemyController : MonoBehaviour
                 sum += a.transform.position;
                 count++;
             }
-            Vector3 threatCenter = count > 0 ? sum / count : transform.position;
-            awayDir = transform.position - threatCenter;
         }
-        else
+        if (count == 0)
         {
-            awayDir = Random.insideUnitSphere;
+            // fallback: toti agentii vii
+            foreach (AgentBehaviorTree a in blackboard.allAgents)
+            {
+                if (a == null) continue;
+                HealthSystem hs = a.GetComponent<HealthSystem>();
+                if (hs == null || hs.isDead) continue;
+                sum += a.transform.position;
+                count++;
+            }
         }
+        return count > 0 ? sum / count : transform.position;
+    }
 
-        awayDir.y = 0;
-        if (awayDir.sqrMagnitude < 0.01f)
-            awayDir = Random.insideUnitSphere;
-        awayDir.y = 0;
-        awayDir.Normalize();
+    // Fuga haotica: departe de grup, dar cu zigzag mare. Ramane pe harta.
+    void SetFleeWanderTarget()
+    {
+        Vector3 center = GetThreatCenter();
 
-        // Jitter unghiular -> fuga haotica
-        float jitter = Random.Range(-fleeAngleJitter, fleeAngleJitter);
-        Vector3 dir = Quaternion.Euler(0, jitter, 0) * awayDir;
+        int dirCount = 16;
+        float angleOffset = Random.Range(0f, 360f);
 
-        for (int i = 0; i < 8; i++)
+        Vector3 bestPoint = Vector3.zero;
+        float bestScore = float.NegativeInfinity;
+        bool found = false;
+
+        for (int i = 0; i < dirCount; i++)
         {
-            float fleeDist = fleeStepDistance * Random.Range(0.6f, 1.2f);
-            Vector3 candidate = transform.position + dir * fleeDist;
+            float ang = (angleOffset + i * (360f / dirCount)) * Mathf.Deg2Rad;
+            Vector3 dir = new Vector3(Mathf.Sin(ang), 0, Mathf.Cos(ang));
+            float step = Random.Range(8f, 13f);
+
+            Vector3 candidate = transform.position + dir * step;
+            candidate.x = Mathf.Clamp(candidate.x, -mapHalfExtent + 2f, mapHalfExtent - 2f);
+            candidate.z = Mathf.Clamp(candidate.z, -mapHalfExtent + 2f, mapHalfExtent - 2f);
 
             NavMeshHit hit;
-            if (NavMesh.SamplePosition(candidate, out hit, 4f, NavMesh.AllAreas))
+            if (!NavMesh.SamplePosition(candidate, out hit, 3f, NavMesh.AllAreas))
+                continue;
+
+            float distFromAgents = Vector3.Distance(hit.position, center);
+            float score = distFromAgents + Random.Range(0f, 4f);
+
+            if (score > bestScore)
+            {
+                bestScore = score;
+                bestPoint = hit.position;
+                found = true;
+            }
+        }
+
+        if (found)
+        {
+            navAgent.SetDestination(bestPoint);
+            return;
+        }
+
+        SetWanderTarget();
+    }
+
+    void SetWanderTarget()
+    {
+        for (int i = 0; i < 20; i++)
+        {
+            Vector3 p = new Vector3(
+                Random.Range(-mapHalfExtent, mapHalfExtent),
+                0,
+                Random.Range(-mapHalfExtent, mapHalfExtent));
+
+            NavMeshHit hit;
+            if (NavMesh.SamplePosition(p, out hit, 5f, NavMesh.AllAreas))
             {
                 navAgent.SetDestination(hit.position);
                 return;
             }
-            dir = Quaternion.Euler(0, Random.Range(-90f, 90f), 0) * dir;
         }
-
-        // ANTI-BLOCAJ garantat
-        NavMeshHit fallbackHit;
-        if (NavMesh.SamplePosition(
-                transform.position + Random.insideUnitSphere * 5f,
-                out fallbackHit, 6f, NavMesh.AllAreas))
-            navAgent.SetDestination(fallbackHit.position);
+        NavMeshHit fb;
+        if (NavMesh.SamplePosition(transform.position + Random.insideUnitSphere * 6f,
+            out fb, 8f, NavMesh.AllAreas))
+            navAgent.SetDestination(fb.position);
     }
 
     void ChaseAssignedGroup()

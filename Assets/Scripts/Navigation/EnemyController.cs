@@ -4,22 +4,19 @@ using UnityEngine.AI;
 public class EnemyController : MonoBehaviour
 {
     [Header("Settings")]
-    public float normalSpeed = 2f;
-    [Tooltip("Viteza cand fuge de Leader in Faza 1 (Engaging). " +
-             "Tine-o usor sub viteza Leader-ului ca sa fie prins, dar nu prea mica.")]
-    public float fleeSpeed = 3.2f;
-    public float chaseSpeed = 4f;
+    [Tooltip("Viteza de plimbare haotica (Idle + dupa ce e depistat).")]
+    public float wanderSpeed = 3f;
+    public float chaseSpeed = 5.5f;
     public float patrolRadius = 20f;
 
-    [Header("Fuga haotica")]
-    [Tooltip("Cat de des isi schimba directia de fuga (secunde). Mic = mai haotic.")]
-    public float fleeRetargetInterval = 0.6f;
-    [Tooltip("Imprastiere unghiulara fata de directia 'departe de leader' (grade).")]
-    public float fleeAngleJitter = 75f;
-    [Tooltip("Distanta pana la urmatorul punct de fuga.")]
-    public float fleeStepDistance = 9f;
-
-    private float fleeTimer = 0f;
+    [Header("Plimbare haotica")]
+    [Tooltip("Cat de des isi schimba destinatia cand NU e depistat (secunde).")]
+    public float wanderRetargetInterval = 1.5f;
+    [Tooltip("Cat de des isi schimba directia cand fuge (mai mic = zigzag mai viu).")]
+    public float fleeRetargetInterval = 0.8f;
+    [Tooltip("Limitele hartii pe X/Z in care se plimba (jumatate de latime).")]
+    public float mapHalfExtent = 20f;
+    private float wanderTimer = 0f;
 
     [Header("Secondary Enemies")]
     public GameObject secondaryEnemyPrefab1;
@@ -34,7 +31,7 @@ public class EnemyController : MonoBehaviour
     void Awake()
     {
         navAgent = GetComponent<NavMeshAgent>();
-        navAgent.speed = normalSpeed;
+        navAgent.speed = wanderSpeed;
     }
 
     void Start()
@@ -44,7 +41,7 @@ public class EnemyController : MonoBehaviour
         if (blackboard != null)
             blackboard.mainEnemy = transform;
 
-        SetNewPatrolTarget();
+        SetWanderTarget();
     }
 
     void Update()
@@ -62,10 +59,9 @@ public class EnemyController : MonoBehaviour
 
         // Comportament:
         // - Faza 2 cu reversal: URMARESC grupul asignat
-        // - Faza 2 normala: sta pe loc (lasa CombatModule sa traga)
-        // - Combat (Faza 1): sta pe loc (Leader-ul e in range, lupta)
-        // - Engaging (Faza 1): FUGE de Leader (asa pare ca incearca sa scape)
-        // - Idle: patruleaza
+        // - Faza 2 normala: se plimba haotic (lasa CombatModule sa traga)
+        // - Combat (Faza 1): sta pe loc (echipa l-a incercuit, lupta)
+        // - Idle/Engaging/Rallying: se plimba HAOTIC prin toata harta
 
         if (blackboard.phase2Active && blackboard.rolesReversed)
         {
@@ -73,23 +69,24 @@ public class EnemyController : MonoBehaviour
         }
         else if (blackboard.phase2Active)
         {
-            // Faza 2 normala: stau pe loc
-            StopMoving();
+            // Faza 2 normala: fuga haotica (departe de grupuri) in timp ce trage
+            Wander(true);
         }
         else if (blackboard.combatState == CombatState.Combat)
         {
-            // Combat Faza 1: stau pe loc, Leader-ul e aproape, lupta
+            // Combat Faza 1: echipa adunata, inamicul se opreste si lupta
             StopMoving();
         }
         else if (blackboard.combatState == CombatState.Engaging ||
                  blackboard.combatState == CombatState.Rallying)
         {
-            // Engaging + Rallying Faza 1: FUG de Leader cat timp echipa se aduna
-            Flee();
+            // Depistat: fuga HAOTICA (tinde departe de agenti, dar cu zigzag)
+            Wander(true);
         }
         else
         {
-            Patrol();
+            // Idle (nedepistat): plimbare haotica pura prin toata harta
+            Wander(false);
         }
     }
 
@@ -97,6 +94,124 @@ public class EnemyController : MonoBehaviour
     {
         if (navAgent.isOnNavMesh && navAgent.hasPath)
             navAgent.ResetPath();
+    }
+
+    // Miscare haotica. alert=false => wander pur. alert=true => fuga haotica:
+    // alege puncte care tind sa fie departe de centrul agentilor, dar cu zigzag.
+    void Wander(bool alert)
+    {
+        if (!navAgent.isOnNavMesh) return;
+        navAgent.isStopped = false;
+        navAgent.speed = wanderSpeed;
+
+        wanderTimer += Time.deltaTime;
+
+        bool reached = !navAgent.pathPending &&
+            navAgent.remainingDistance <= navAgent.stoppingDistance + 0.2f;
+        bool noPath = !navAgent.hasPath && !navAgent.pathPending;
+
+        float interval = alert ? fleeRetargetInterval : wanderRetargetInterval;
+        if (wanderTimer >= interval || reached || noPath)
+        {
+            wanderTimer = 0f;
+            if (alert) SetFleeWanderTarget();
+            else SetWanderTarget();
+        }
+    }
+
+    // Centrul agentilor vii (pentru a sti de cine sa fuga).
+    Vector3 GetAgentsCenter()
+    {
+        if (blackboard == null) return transform.position;
+        Vector3 sum = Vector3.zero;
+        int count = 0;
+        foreach (AgentBehaviorTree a in blackboard.allAgents)
+        {
+            if (a == null) continue;
+            HealthSystem hs = a.GetComponent<HealthSystem>();
+            if (hs == null || hs.isDead) continue;
+            sum += a.transform.position;
+            count++;
+        }
+        return count > 0 ? sum / count : transform.position;
+    }
+
+    // Fuga haotica: directia de baza = departe de centrul agentilor,
+    // dar cu jitter unghiular mare (zigzag) si pas variabil. Ramane pe harta.
+    void SetFleeWanderTarget()
+    {
+        Vector3 center = GetAgentsCenter();
+
+        // Scaneaza directii pe un cerc COMPLET. Pentru fiecare punct valid pe harta,
+        // calculeaza un scor (cat de departe ajunge de agenti). Alege cel mai bun.
+        // Astfel, daca e incoltit, accepta sa treaca pe langa agenti ca sa scape,
+        // dar prefera mereu directia care-l duce cel mai departe de ei.
+        int dirCount = 16;
+        float angleOffset = Random.Range(0f, 360f); // rotim startul = haotic intre apeluri
+
+        Vector3 bestPoint = Vector3.zero;
+        float bestScore = float.NegativeInfinity;
+        bool found = false;
+
+        for (int i = 0; i < dirCount; i++)
+        {
+            float ang = (angleOffset + i * (360f / dirCount)) * Mathf.Deg2Rad;
+            Vector3 dir = new Vector3(Mathf.Sin(ang), 0, Mathf.Cos(ang));
+            float step = Random.Range(8f, 13f);
+
+            Vector3 candidate = transform.position + dir * step;
+            candidate.x = Mathf.Clamp(candidate.x, -mapHalfExtent + 2f, mapHalfExtent - 2f);
+            candidate.z = Mathf.Clamp(candidate.z, -mapHalfExtent + 2f, mapHalfExtent - 2f);
+
+            NavMeshHit hit;
+            if (!NavMesh.SamplePosition(candidate, out hit, 3f, NavMesh.AllAreas))
+                continue;
+
+            // Scor = distanta punctului fata de agenti (mai mare = mai bine)
+            // + un bonus mic random ca sa nu fie mereu identic (haotic).
+            float distFromAgents = Vector3.Distance(hit.position, center);
+            float score = distFromAgents + Random.Range(0f, 4f);
+
+            if (score > bestScore)
+            {
+                bestScore = score;
+                bestPoint = hit.position;
+                found = true;
+            }
+        }
+
+        if (found)
+        {
+            navAgent.SetDestination(bestPoint);
+            return;
+        }
+
+        // Daca NICIO directie nu a mers (foarte rar) -> wander pur garantat.
+        SetWanderTarget();
+    }
+
+    void SetWanderTarget()
+    {
+        // Incearca pana gaseste un punct valid pe NavMesh, oriunde pe harta.
+        for (int i = 0; i < 20; i++)
+        {
+            Vector3 p = new Vector3(
+                Random.Range(-mapHalfExtent, mapHalfExtent),
+                0,
+                Random.Range(-mapHalfExtent, mapHalfExtent));
+
+            NavMeshHit hit;
+            if (NavMesh.SamplePosition(p, out hit, 5f, NavMesh.AllAreas))
+            {
+                navAgent.SetDestination(hit.position);
+                return;
+            }
+        }
+        // ANTI-BLOCAJ: daca nimic, sample langa pozitia curenta.
+        NavMeshHit fb;
+        if (NavMesh.SamplePosition(transform.position + Random.insideUnitSphere * 6f,
+            out fb, 8f, NavMesh.AllAreas))
+            navAgent.SetDestination(fb.position);
     }
 
     void CheckLiberation()
@@ -112,15 +227,10 @@ public class EnemyController : MonoBehaviour
     {
         enemiesLiberated = true;
 
-        // Citeste maxHP de la inamicul principal pentru a-l aplica secundarilor
-        HealthSystem mainHS = GetComponent<HealthSystem>();
-        float mainMaxHP = mainHS != null ? mainHS.maxHP : 100f;
-
         if (secondaryEnemyPrefab1 != null)
         {
             GameObject e1 = Instantiate(secondaryEnemyPrefab1,
                 spawnPosition1, Quaternion.identity);
-            ApplyHPFromMain(e1, mainMaxHP);
             e1.GetComponent<SecondaryEnemyController>()?.Liberate();
         }
 
@@ -128,91 +238,12 @@ public class EnemyController : MonoBehaviour
         {
             GameObject e2 = Instantiate(secondaryEnemyPrefab2,
                 spawnPosition2, Quaternion.identity);
-            ApplyHPFromMain(e2, mainMaxHP);
             e2.GetComponent<SecondaryEnemyController>()?.Liberate();
         }
 
         blackboard?.ActivatePhase2();
 
-        Debug.Log($"[Enemy] Inamici secundari spawned cu {mainMaxHP} HP!");
-    }
-
-    // Suprascrie maxHP si currentHP ale secundarului cu HP-ul inamicului principal
-    void ApplyHPFromMain(GameObject secondary, float mainMaxHP)
-    {
-        HealthSystem hs = secondary.GetComponent<HealthSystem>();
-        if (hs == null) return;
-
-        hs.maxHP = mainMaxHP;
-        hs.currentHP = mainMaxHP;
-    }
-
-    // Fuge de Leader (Faza 1, Engaging)
-    void Flee()
-    {
-        navAgent.speed = fleeSpeed;
-        navAgent.isStopped = false;
-
-        fleeTimer += Time.deltaTime;
-
-        bool reached = !navAgent.pathPending &&
-            navAgent.remainingDistance <= navAgent.stoppingDistance + 0.1f;
-        bool noPath = !navAgent.hasPath && !navAgent.pathPending;
-
-        // Reschimba directia periodic (haotic), cand ajunge, SAU daca a ramas fara drum.
-        if (fleeTimer >= fleeRetargetInterval || reached || noPath)
-        {
-            fleeTimer = 0f;
-            SetNewFleeTarget();
-        }
-    }
-
-    void SetNewFleeTarget()
-    {
-        AgentBehaviorTree leader = blackboard?.GetLeader();
-
-        // Directia de baza: departe de leader (daca exista), altfel directie random.
-        Vector3 awayDir;
-        if (leader != null)
-        {
-            awayDir = transform.position - leader.transform.position;
-            awayDir.y = 0;
-            if (awayDir.sqrMagnitude < 0.01f)
-                awayDir = Random.insideUnitSphere;
-        }
-        else
-        {
-            awayDir = Random.insideUnitSphere;
-        }
-        awayDir.y = 0;
-        awayDir.Normalize();
-
-        // Aplica jitter unghiular mare ca sa para haotic (zig-zag).
-        float jitter = Random.Range(-fleeAngleJitter, fleeAngleJitter);
-        Vector3 dir = Quaternion.Euler(0, jitter, 0) * awayDir;
-
-        // Incearca puncte la distante descrescatoare; primul valid pe NavMesh castiga.
-        for (int i = 0; i < 8; i++)
-        {
-            float dist = fleeStepDistance * Random.Range(0.6f, 1.2f);
-            Vector3 candidate = transform.position + dir * dist;
-
-            NavMeshHit hit;
-            if (NavMesh.SamplePosition(candidate, out hit, 4f, NavMesh.AllAreas))
-            {
-                navAgent.SetDestination(hit.position);
-                return;
-            }
-            // Daca nu merge, roteste directia si reincearca (cauta o iesire).
-            dir = Quaternion.Euler(0, Random.Range(-90f, 90f), 0) * dir;
-        }
-
-        // ANTI-BLOCAJ garantat: daca nimic nu a mers, sample direct langa pozitia curenta.
-        NavMeshHit fallbackHit;
-        if (NavMesh.SamplePosition(
-                transform.position + Random.insideUnitSphere * 5f,
-                out fallbackHit, 6f, NavMesh.AllAreas))
-            navAgent.SetDestination(fallbackHit.position);
+        Debug.Log("[Enemy] Inamici secundari spawned (HP din propriul prefab).");
     }
 
     // In reversal: urmareste grupul de agenti asignat
@@ -270,33 +301,6 @@ public class EnemyController : MonoBehaviour
             navAgent.SetDestination(nearestSniper.position);
         else
             StopMoving();
-    }
-
-    void Patrol()
-    {
-        navAgent.speed = normalSpeed;
-
-        if (!navAgent.pathPending &&
-            navAgent.remainingDistance <= navAgent.stoppingDistance)
-            SetNewPatrolTarget();
-    }
-
-    void SetNewPatrolTarget()
-    {
-        for (int i = 0; i < 10; i++)
-        {
-            Vector3 randomPoint = new Vector3(
-                Random.Range(-patrolRadius, patrolRadius),
-                0,
-                Random.Range(-patrolRadius, patrolRadius));
-
-            NavMeshHit hit;
-            if (NavMesh.SamplePosition(randomPoint, out hit, 5f, NavMesh.AllAreas))
-            {
-                navAgent.SetDestination(hit.position);
-                return;
-            }
-        }
     }
 
     public float GetHPPercentage()

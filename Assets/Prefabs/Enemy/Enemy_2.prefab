@@ -152,9 +152,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 911ed2eb032169b4e8d15424e8f2459f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SecondaryEnemyController
-  fleeSpeed: 5
-  isLiberated: 0
-  isLeftSide: 1
+  wanderSpeed: 3
+  chaseSpeed: 4
+  wanderRetargetInterval: 1.5
+  fleeRetargetInterval: 0.8
+  mapHalfExtent: 20
 --- !u!114 &244559161019535850
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -169,6 +171,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CombatModule
   isEnemy: 1
   isSniper: 0
+  sniperHitChance: 0.3
 --- !u!114 &3552992478205880752
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -181,9 +184,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 803bc575330f8af4a929dda4359d6d1e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HealthSystem
-  maxHP: 100
+  maxHP: 500
   currentHP: 0
-  attackDamage: 10
+  attackDamage: 18
   attackRange: 10
   attackCooldown: 1
   isDead: 0

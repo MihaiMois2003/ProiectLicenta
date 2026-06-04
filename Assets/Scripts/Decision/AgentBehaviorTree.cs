@@ -13,8 +13,10 @@ public class AgentBehaviorTree : MonoBehaviour
 
     [Header("Speed Settings")]
     public float normalSpeed = 3.5f;
-    public float catchUpSpeed = 6f;
+    public float catchUpSpeed = 5.5f;
     public float catchUpDistance = 3f;
+    [Tooltip("Viteza agentilor cand FUG la reversal (mica, ca inamicii sa-i prinda).")]
+    public float reversalFleeSpeed = 3f;
 
     [Header("Patrol Settings")]
     public float patrolRadius = 8f;
@@ -40,6 +42,8 @@ public class AgentBehaviorTree : MonoBehaviour
     public bool KnowsEnemy()
     {
         if (blackboard == null) return false;
+        // In Faza 2 toti agentii au tinte asignate -> stiu prin definitie.
+        if (blackboard.phase2Active) return true;
         var cfg = ExperimentConfig.Instance;
         if (cfg == null || cfg.communicationMode == CommunicationMode.Blackboard)
             return blackboard.enemySpotted;
@@ -126,11 +130,53 @@ public class AgentBehaviorTree : MonoBehaviour
     void UpdateSpeed()
     {
         if (blackboard == null) return;
-        if (role == AgentRole.Leader || role == AgentRole.Sniper) return;
         if (FormationManager.Instance == null) return;
 
-        AgentBehaviorTree referenceLeader = GetGroupLeader();
-        if (referenceLeader == null) return;
+        if (role == AgentRole.Sniper) return;
+
+        // ── FAZA 2 ──
+        if (blackboard.phase2Active)
+        {
+            AgentBehaviorTree groupLeader = GetGroupLeader();
+            bool iAmGroupLeader = (groupLeader == this);
+
+            if (blackboard.rolesReversed)
+            {
+                // REVERSAL: agentii FUG de inamici -> viteza MICA, ca inamicii sa-i prinda.
+                agentController.SetSpeed(reversalFleeSpeed);
+            }
+            else if (iAmGroupLeader)
+            {
+                // Normal: liderul de grup urmareste inamicul care fuge -> viteza mare.
+                agentController.SetSpeed(catchUpSpeed);
+            }
+            else
+            {
+                // Restul grupului: catch-up daca a ramas in urma fata de slot.
+                SetSpeedByFormationDistance(groupLeader);
+            }
+            return;
+        }
+
+        // ── FAZA 1 ──
+        if (role == AgentRole.Leader)
+        {
+            // Leaderul urmareste inamicul care se plimba haotic -> viteza mare cat urmareste.
+            bool pursuing = blackboard.combatState == CombatState.Engaging ||
+                            blackboard.combatState == CombatState.Rallying ||
+                            blackboard.combatState == CombatState.Combat;
+            agentController.SetSpeed(pursuing ? catchUpSpeed : normalSpeed);
+            return;
+        }
+
+        // Restul (Scout/Support) in Faza 1: catch-up fata de formatie.
+        SetSpeedByFormationDistance(blackboard.GetLeader());
+    }
+
+    // Seteaza viteza in functie de cat de departe e agentul de slotul lui de formatie.
+    void SetSpeedByFormationDistance(AgentBehaviorTree referenceLeader)
+    {
+        if (referenceLeader == null) { agentController.SetSpeed(normalSpeed); return; }
 
         Vector3 formationPos = FormationManager.Instance.GetFormationPosition(
             referenceLeader.transform.position,
@@ -155,10 +201,35 @@ public class AgentBehaviorTree : MonoBehaviour
         foreach (EnemyGroup group in blackboard.enemyGroups)
         {
             if (group.groupID != groupID) continue;
+
+            // Cauta liderul desemnat (formationRow == 0) DACA e viu.
             foreach (AgentBehaviorTree agent in group.agents)
             {
-                if (agent.formationRow == 0) return agent;
+                if (agent == null) continue;
+                if (agent.formationRow != 0) continue;
+                HealthSystem hs = agent.GetComponent<HealthSystem>();
+                if (hs != null && !hs.isDead) return agent;
             }
+
+            // Liderul desemnat e mort (sau lipseste) -> promoveaza primul agent viu.
+            AgentBehaviorTree newLeader = null;
+            foreach (AgentBehaviorTree agent in group.agents)
+            {
+                if (agent == null) continue;
+                HealthSystem hs = agent.GetComponent<HealthSystem>();
+                if (hs == null || hs.isDead) continue;
+                newLeader = agent;
+                break;
+            }
+
+            if (newLeader != null)
+            {
+                // Devine noul lider de grup: preia rolul de fruntas al formatiei.
+                newLeader.formationRow = 0;
+                newLeader.formationIndexInRow = 0;
+                newLeader.formationTotalInRow = 1;
+            }
+            return newLeader;
         }
         return null;
     }
