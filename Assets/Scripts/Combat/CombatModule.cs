@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class CombatModule : MonoBehaviour
 {
@@ -199,14 +199,12 @@ public class CombatModule : MonoBehaviour
         HealthSystem targetHS = target.GetComponent<HealthSystem>();
         if (targetHS == null) return;
 
-        // Sniper: rata de succes configurabila
+        // Decizia de tragere a sniperului depinde de DecisionMode.
         if (isSniper)
         {
-            float chance = Random.Range(0f, 1f);
-            if (chance > sniperHitChance)
+            if (!SniperDecidesToFire(target, targetHS))
             {
                 healthSystem.ResetAttackTimer();
-                Debug.Log($"[Combat] {gameObject.name} (sniper) a tras in {target.name} dar a RATAT.");
                 return;
             }
         }
@@ -217,5 +215,77 @@ public class CombatModule : MonoBehaviour
         Debug.Log($"[Combat] {gameObject.name} a atacat {target.name} " +
             $"pentru {healthSystem.attackDamage} damage. " +
             $"HP ramas: {targetHS.currentHP}/{targetHS.maxHP}");
+    }
+
+    // ── DECIZIA DE TRAGERE A SNIPERULUI ──
+    // FixedChance = zar cu sniperHitChance (original).
+    // Heuristic   = trage doar daca LOS clar + tinta slabita + niciun aliat in pericol.
+    // ML_PPO      = decizie luata de un model ML (slot; pana e antrenat, foloseste euristica).
+    bool SniperDecidesToFire(Transform target, HealthSystem targetHS)
+    {
+        var cfg = ExperimentConfig.Instance;
+        DecisionMode mode = cfg != null ? cfg.decisionMode : DecisionMode.FixedChance;
+
+        switch (mode)
+        {
+            case DecisionMode.Heuristic:
+                return HeuristicFireDecision(target, targetHS);
+
+            case DecisionMode.ML_PPO:
+                return MLFireDecision(target, targetHS);
+
+            case DecisionMode.FixedChance:
+            default:
+                // Zar simplu.
+                return Random.Range(0f, 1f) <= sniperHitChance;
+        }
+    }
+
+    [Header("Heuristic Decision")]
+    [Tooltip("Trage doar daca tinta e sub acest procent de HP (Heuristic).")]
+    [Range(0f, 1f)] public float heuristicTargetHPThreshold = 0.85f;
+    [Tooltip("Raza in jurul tintei in care un aliat e considerat 'in pericol' (Heuristic).")]
+    public float heuristicAllyDangerRadius = 3f;
+
+    bool HeuristicFireDecision(Transform target, HealthSystem targetHS)
+    {
+        // 1. LOS clar (re-verificat; PickSniperTarget deja filtreaza, dar fii sigur).
+        if (!HasLineOfSight(target)) return false;
+
+        // 2. Nu irosi pe tinte la full HP daca pragul cere o tinta slabita.
+        //    (interpretare: tragem cand tinta e sub prag SAU mereu daca prag = 1)
+        float hpPct = targetHS.GetHPPercentage();
+        if (hpPct > heuristicTargetHPThreshold) return false;
+
+        // 3. Niciun aliat in pericol langa tinta (sa nu lovim prin propriul aliat).
+        if (AllyNearTarget(target)) return false;
+
+        return true;
+    }
+
+    // Exista un aliat (layer Ally) prea aproape de tinta (risc de friendly fire vizual)?
+    bool AllyNearTarget(Transform target)
+    {
+        int allyLayer = LayerMask.GetMask("Ally");
+        Collider[] near = Physics.OverlapSphere(
+            target.position, heuristicAllyDangerRadius, allyLayer);
+        foreach (Collider c in near)
+        {
+            HealthSystem hs = c.GetComponent<HealthSystem>();
+            if (hs != null && !hs.isDead) return true;
+        }
+        return false;
+    }
+
+    // Slot ML: pana antrenam modelul ONNX, foloseste aceeasi euristica.
+    // Cand vei avea SniperMLAgent, inlocuiesti corpul cu apelul la model.
+    bool MLFireDecision(Transform target, HealthSystem targetHS)
+    {
+        SniperMLAgent ml = GetComponent<SniperMLAgent>();
+        if (ml != null)
+            return ml.DecideFire(target, targetHS, this);
+
+        // Fallback pana exista agentul ML: euristica.
+        return HeuristicFireDecision(target, targetHS);
     }
 }

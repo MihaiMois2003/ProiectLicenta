@@ -53,7 +53,7 @@ public class ExperimentUI : MonoBehaviour
         ObstacleManager obs = ObstacleManager.Instance;
 
         // Inaltime fixa, NU Screen.height (care da probleme la scale-ul ferestrei Game).
-        GUILayout.BeginArea(new Rect(10, 10, panelWidth, 820), box);
+        GUILayout.BeginArea(new Rect(10, 10, panelWidth, 940), box);
         GUILayout.BeginVertical();
 
         // ── CONTROALE ─────────────────────────────
@@ -96,6 +96,22 @@ public class ExperimentUI : MonoBehaviour
                 int next = ((int)cfg.planningMode + 1) % 3;
                 cfg.planningMode = (PlanningMode)next;
             }
+
+            GUILayout.Space(4);
+            GUILayout.Label("Decizie sniper: " + cfg.decisionMode, label);
+            if (GUILayout.Button("Schimba decizia", btn))
+            {
+                int next = ((int)cfg.decisionMode + 1) % 3;
+                cfg.decisionMode = (DecisionMode)next;
+            }
+
+            GUILayout.Space(4);
+            string help = cfg.helpRequestEnabled ? "ON" : "OFF";
+            if (GUILayout.Button("Help-request: " + help, btn))
+                cfg.helpRequestEnabled = !cfg.helpRequestEnabled;
+            string regen = cfg.supportRegenEnabled ? "ON" : "OFF";
+            if (GUILayout.Button("Support regen: " + regen, btn))
+                cfg.supportRegenEnabled = !cfg.supportRegenEnabled;
         }
         else
         {

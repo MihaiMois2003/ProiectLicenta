@@ -51,6 +51,14 @@ public class HealthSystem : MonoBehaviour
             Die();
     }
 
+    // Regenereaza HP (folosit de Support). Nu invie mortii, nu depaseste maxHP.
+    public void Heal(float amount)
+    {
+        if (isDead || amount <= 0) return;
+        currentHP = Mathf.Clamp(currentHP + amount, 0, maxHP);
+        OnHPChanged?.Invoke(currentHP);
+    }
+
     void Die()
     {
         isDead = true;

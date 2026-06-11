@@ -87,15 +87,142 @@ public class AgentBehaviorTree : MonoBehaviour
         blackboard = TacticalBlackboard.Instance;
         blackboard?.RegisterAgent(this);
         BuildBehaviorTree();
-        SetNewPatrolTarget();
+        // Nu setam destinatie aici - patrularea porneste dupa START.
     }
+
+    private bool agentInitialized = false;
 
     void Update()
     {
-        if (!TacticalBlackboard.IsRunning()) return;
+        if (!TacticalBlackboard.IsRunning())
+        {
+            // Inghetat: tine agentul pe loc.
+            var na = GetComponent<UnityEngine.AI.NavMeshAgent>();
+            if (na != null && na.isOnNavMesh)
+            {
+                na.isStopped = true;
+                na.velocity = Vector3.zero;
+            }
+            return;
+        }
+
+        if (!agentInitialized)
+        {
+            agentInitialized = true;
+            var na = GetComponent<UnityEngine.AI.NavMeshAgent>();
+            if (na != null && na.isOnNavMesh) na.isStopped = false;
+            SetNewPatrolTarget();
+        }
+
         UpdateCombatTarget();
         behaviorTree?.Evaluate();
         UpdateSpeed();
+        UpdateSupportRegen();
+        UpdateHelpRequest();
+    }
+
+    [HideInInspector] public bool isRespondingToHelp = false;
+    [HideInInspector] public AgentBehaviorTree helpTarget = null;
+
+    // Sistem de cerere de ajutor: agentul sub prag cere ajutor; cel mai apropiat
+    // aliat sanatos vine spre el. Activat din config (helpRequestEnabled).
+    void UpdateHelpRequest()
+    {
+        var cfg = ExperimentConfig.Instance;
+        if (cfg == null || !cfg.helpRequestEnabled) return;
+        if (blackboard == null) return;
+
+        HealthSystem ownHS = GetComponent<HealthSystem>();
+        if (ownHS == null || ownHS.isDead) return;
+
+        // Sniperii nu cer si nu raspund (raman la pozitie).
+        if (role == AgentRole.Sniper) return;
+
+        // 1. Daca sunt sub prag, cer ajutor.
+        if (ownHS.GetHPPercentage() < cfg.helpRequestThreshold)
+        {
+            blackboard.RequestHelp(agentID);
+        }
+        else
+        {
+            blackboard.ResolveHelp(agentID); // m-am refacut, nu mai cer
+        }
+
+        // 2. Daca eu sunt sanatos, verific daca trebuie sa raspund la o cerere.
+        if (ownHS.GetHPPercentage() >= cfg.helpRequestThreshold)
+        {
+            AgentBehaviorTree needy = FindNearestHelpRequester();
+            if (needy != null && needy != this)
+            {
+                // Sunt cel mai apropiat aliat sanatos de cel ranit? Atunci ma duc.
+                if (AmINearestHelperTo(needy))
+                {
+                    isRespondingToHelp = true;
+                    helpTarget = needy;
+                    agentController.MoveTo(needy.transform.position);
+                    return;
+                }
+            }
+        }
+        isRespondingToHelp = false;
+        helpTarget = null;
+    }
+
+    AgentBehaviorTree FindNearestHelpRequester()
+    {
+        AgentBehaviorTree nearest = null;
+        float minDist = Mathf.Infinity;
+        foreach (string id in blackboard.helpRequests)
+        {
+            AgentBehaviorTree a = blackboard.GetAgentByID(id);
+            if (a == null) continue;
+            HealthSystem hs = a.GetComponent<HealthSystem>();
+            if (hs == null || hs.isDead) continue;
+            float d = Vector3.Distance(transform.position, a.transform.position);
+            if (d < minDist) { minDist = d; nearest = a; }
+        }
+        return nearest;
+    }
+
+    bool AmINearestHelperTo(AgentBehaviorTree needy)
+    {
+        var cfg = ExperimentConfig.Instance;
+        float myDist = Vector3.Distance(transform.position, needy.transform.position);
+        foreach (AgentBehaviorTree a in blackboard.allAgents)
+        {
+            if (a == null || a == this || a == needy) continue;
+            if (a.role == AgentRole.Sniper) continue;
+            HealthSystem hs = a.GetComponent<HealthSystem>();
+            if (hs == null || hs.isDead) continue;
+            if (hs.GetHPPercentage() < (cfg != null ? cfg.helpRequestThreshold : 0.3f)) continue;
+            float d = Vector3.Distance(a.transform.position, needy.transform.position);
+            if (d < myDist) return false; // altcineva e mai aproape
+        }
+        return true;
+    }
+
+    // Support regenereaza HP-ul aliatilor vii din jur (daca e activat in config).
+    void UpdateSupportRegen()
+    {
+        if (role != AgentRole.Support) return;
+        var cfg = ExperimentConfig.Instance;
+        if (cfg == null || !cfg.supportRegenEnabled) return;
+
+        HealthSystem ownHS = GetComponent<HealthSystem>();
+        if (ownHS == null || ownHS.isDead) return;
+
+        float regenRadius = 6f;
+        int allyLayer = LayerMask.GetMask("Ally");
+        Collider[] near = Physics.OverlapSphere(transform.position, regenRadius, allyLayer);
+        float amount = cfg.supportRegenPerSecond * Time.deltaTime;
+
+        foreach (Collider c in near)
+        {
+            HealthSystem hs = c.GetComponent<HealthSystem>();
+            if (hs == null || hs.isDead) continue;
+            if (hs.currentHP >= hs.maxHP) continue;
+            hs.Heal(amount);
+        }
     }
 
     // Stabileste tinta de combat curenta in functie de faza si rol.

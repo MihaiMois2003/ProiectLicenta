@@ -41,12 +41,33 @@ public class EnemyController : MonoBehaviour
         if (blackboard != null)
             blackboard.mainEnemy = transform;
 
-        SetWanderTarget();
+        // Nu setam destinatie aici - Update() porneste plimbarea dupa START.
     }
+
+    private bool wanderInitialized = false;
 
     void Update()
     {
-        if (!TacticalBlackboard.IsRunning()) return;
+        if (!TacticalBlackboard.IsRunning())
+        {
+            // Inghetat: tine inamicul pe loc complet.
+            if (navAgent != null && navAgent.isOnNavMesh)
+            {
+                navAgent.isStopped = true;
+                navAgent.velocity = Vector3.zero;
+            }
+            return;
+        }
+
+        // Prima rulare dupa START: porneste plimbarea.
+        if (!wanderInitialized)
+        {
+            wanderInitialized = true;
+            if (navAgent != null && navAgent.isOnNavMesh)
+                navAgent.isStopped = false;
+            SetWanderTarget();
+        }
+
         if (blackboard == null) return;
 
         // Verifica eliberarea inamicilor secundari (HP < 75%)
