@@ -45,6 +45,7 @@ public class MovingObstacle : MonoBehaviour
 
     void Update()
     {
+        if (!TacticalBlackboard.IsRunning()) return;
         float dist = Vector3.Distance(pointA, pointB);
         if (dist < 0.01f) return;
 

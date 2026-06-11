@@ -52,7 +52,7 @@ public class MetricsCollector : MonoBehaviour
     void Start()
     {
         bb = TacticalBlackboard.Instance;
-        timeSceneStart = Time.time;
+        timeSceneStart = -1f;
     }
 
     public void ResetRun()
@@ -60,7 +60,7 @@ public class MetricsCollector : MonoBehaviour
         timerRunning = false;
         elapsedTime = 0f;
         timeFirstContact = -1f;
-        timeSceneStart = Time.time;
+        timeSceneStart = -1f;
         detectionTime = -1f;
         timeFirstCombat = -1f;
         reactionTime = -1f;
@@ -78,6 +78,10 @@ public class MetricsCollector : MonoBehaviour
     void Update()
     {
         if (bb == null) { bb = TacticalBlackboard.Instance; if (bb == null) return; }
+        if (!bb.simulationStarted) return;
+
+        // Marcheaza momentul real de start (prima data cand simularea ruleaza).
+        if (timeSceneStart < 0f) timeSceneStart = Time.time;
 
         // Start cronometru la primul contact
         if (!firstContactSeen &&

@@ -144,6 +144,7 @@ MonoBehaviour:
   normalSpeed: 3.5
   catchUpSpeed: 6
   catchUpDistance: 3
+  reversalFleeSpeed: 3
   patrolRadius: 8
   groupID: -1
   fleeDistance: 15
@@ -181,9 +182,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 803bc575330f8af4a929dda4359d6d1e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HealthSystem
-  maxHP: 100
+  maxHP: 200
   currentHP: 0
-  attackDamage: 10
+  attackDamage: 6
   attackRange: 30
   attackCooldown: 1
   isDead: 0
@@ -212,6 +213,7 @@ MonoBehaviour:
   normalSpeed: 3.5
   catchUpSpeed: 6
   catchUpDistance: 3
+  reversalFleeSpeed: 3
   patrolRadius: 8
   groupID: -1
   fleeDistance: 15
@@ -249,9 +251,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 803bc575330f8af4a929dda4359d6d1e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HealthSystem
-  maxHP: 100
+  maxHP: 200
   currentHP: 0
-  attackDamage: 10
+  attackDamage: 6
   attackRange: 20
   attackCooldown: 1
   isDead: 0
@@ -497,6 +499,7 @@ MonoBehaviour:
   normalSpeed: 3.5
   catchUpSpeed: 6
   catchUpDistance: 3
+  reversalFleeSpeed: 3
   patrolRadius: 8
   groupID: -1
   fleeDistance: 15
@@ -521,7 +524,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CombatModule
   isEnemy: 0
   isSniper: 1
-  sniperHitChance: 0.3
+  sniperHitChance: 0.5
 --- !u!114 &206510312
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -534,11 +537,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 803bc575330f8af4a929dda4359d6d1e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HealthSystem
-  maxHP: 100
+  maxHP: 160
   currentHP: 0
-  attackDamage: 10
+  attackDamage: 25
   attackRange: 100
-  attackCooldown: 1
+  attackCooldown: 2
   isDead: 0
 --- !u!1 &245129382
 GameObject:
@@ -1368,6 +1371,7 @@ MonoBehaviour:
   normalSpeed: 3.5
   catchUpSpeed: 6
   catchUpDistance: 3
+  reversalFleeSpeed: 3
   patrolRadius: 8
   groupID: -1
   fleeDistance: 15
@@ -1392,7 +1396,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CombatModule
   isEnemy: 0
   isSniper: 1
-  sniperHitChance: 0.3
+  sniperHitChance: 0.5
 --- !u!114 &482943302
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1405,9 +1409,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 803bc575330f8af4a929dda4359d6d1e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HealthSystem
-  maxHP: 100
+  maxHP: 160
   currentHP: 0
-  attackDamage: 10
+  attackDamage: 25
   attackRange: 100
   attackCooldown: 1
   isDead: 0
@@ -1753,6 +1757,7 @@ MonoBehaviour:
   normalSpeed: 3.5
   catchUpSpeed: 6
   catchUpDistance: 3
+  reversalFleeSpeed: 3
   patrolRadius: 8
   groupID: -1
   fleeDistance: 15
@@ -1790,9 +1795,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 803bc575330f8af4a929dda4359d6d1e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HealthSystem
-  maxHP: 100
+  maxHP: 200
   currentHP: 0
-  attackDamage: 10
+  attackDamage: 6
   attackRange: 30
   attackCooldown: 1
   isDead: 0
@@ -1821,6 +1826,7 @@ MonoBehaviour:
   normalSpeed: 3.5
   catchUpSpeed: 6
   catchUpDistance: 3
+  reversalFleeSpeed: 3
   patrolRadius: 8
   groupID: -1
   fleeDistance: 15
@@ -1858,9 +1864,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 803bc575330f8af4a929dda4359d6d1e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HealthSystem
-  maxHP: 100
+  maxHP: 200
   currentHP: 0
-  attackDamage: 10
+  attackDamage: 6
   attackRange: 20
   attackCooldown: 1
   isDead: 0
@@ -2102,6 +2108,7 @@ MonoBehaviour:
   normalSpeed: 3.5
   catchUpSpeed: 6
   catchUpDistance: 3
+  reversalFleeSpeed: 3
   patrolRadius: 8
   groupID: -1
   fleeDistance: 15
@@ -2139,9 +2146,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 803bc575330f8af4a929dda4359d6d1e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HealthSystem
-  maxHP: 100
+  maxHP: 200
   currentHP: 0
-  attackDamage: 10
+  attackDamage: 6
   attackRange: 30
   attackCooldown: 1
   isDead: 0
@@ -2170,6 +2177,7 @@ MonoBehaviour:
   normalSpeed: 3.5
   catchUpSpeed: 6
   catchUpDistance: 3
+  reversalFleeSpeed: 3
   patrolRadius: 8
   groupID: -1
   fleeDistance: 15
@@ -2207,9 +2215,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 803bc575330f8af4a929dda4359d6d1e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HealthSystem
-  maxHP: 100
+  maxHP: 200
   currentHP: 0
-  attackDamage: 10
+  attackDamage: 6
   attackRange: 20
   attackCooldown: 1
   isDead: 0
@@ -2429,6 +2437,7 @@ MonoBehaviour:
   normalSpeed: 3.5
   catchUpSpeed: 6
   catchUpDistance: 3
+  reversalFleeSpeed: 3
   patrolRadius: 8
   groupID: -1
   fleeDistance: 15
@@ -2466,9 +2475,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 803bc575330f8af4a929dda4359d6d1e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HealthSystem
-  maxHP: 100
+  maxHP: 200
   currentHP: 0
-  attackDamage: 10
+  attackDamage: 6
   attackRange: 30
   attackCooldown: 1
   isDead: 0
@@ -2497,6 +2506,7 @@ MonoBehaviour:
   normalSpeed: 3.5
   catchUpSpeed: 6
   catchUpDistance: 3
+  reversalFleeSpeed: 3
   patrolRadius: 8
   groupID: -1
   fleeDistance: 15
@@ -2534,9 +2544,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 803bc575330f8af4a929dda4359d6d1e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HealthSystem
-  maxHP: 150
+  maxHP: 200
   currentHP: 0
-  attackDamage: 10
+  attackDamage: 6
   attackRange: 10
   attackCooldown: 1
   isDead: 0
@@ -2806,6 +2816,7 @@ MonoBehaviour:
   normalSpeed: 3.5
   catchUpSpeed: 6
   catchUpDistance: 3
+  reversalFleeSpeed: 3
   patrolRadius: 8
   groupID: -1
   fleeDistance: 15
@@ -2843,9 +2854,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 803bc575330f8af4a929dda4359d6d1e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HealthSystem
-  maxHP: 100
+  maxHP: 200
   currentHP: 0
-  attackDamage: 10
+  attackDamage: 6
   attackRange: 30
   attackCooldown: 1
   isDead: 0
@@ -3016,9 +3027,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 803bc575330f8af4a929dda4359d6d1e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::HealthSystem
-  maxHP: 1600
+  maxHP: 1000
   currentHP: 0
-  attackDamage: 10
+  attackDamage: 18
   attackRange: 10
   attackCooldown: 1
   isDead: 0
@@ -3049,13 +3060,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: be40acb01fb85ca45ad2a1a2b81460a3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyController
-  normalSpeed: 2
-  fleeSpeed: 3
+  wanderSpeed: 3
   chaseSpeed: 4
   patrolRadius: 20
-  fleeRetargetInterval: 0.6
-  fleeAngleJitter: 75
-  fleeStepDistance: 9
+  wanderRetargetInterval: 1.5
+  fleeRetargetInterval: 0.8
+  mapHalfExtent: 20
   secondaryEnemyPrefab1: {fileID: 2176302785004463842, guid: b1f514897e5cb9b4aab204d84188202a, type: 3}
   secondaryEnemyPrefab2: {fileID: 2179906661171846795, guid: a6addae893e70e449bb081388b5bc5e9, type: 3}
   spawnPosition1: {x: 0, y: 1, z: 20}

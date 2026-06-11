@@ -26,6 +26,7 @@ public class CombatModule : MonoBehaviour
 
     void Update()
     {
+        if (!TacticalBlackboard.IsRunning()) return;
         if (healthSystem.isDead) return;
 
         // Tragerea porneste doar in Combat (sau in Faza 2, care implicit e combat)

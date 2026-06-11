@@ -53,7 +53,7 @@ public class ExperimentUI : MonoBehaviour
         ObstacleManager obs = ObstacleManager.Instance;
 
         // Inaltime fixa, NU Screen.height (care da probleme la scale-ul ferestrei Game).
-        GUILayout.BeginArea(new Rect(10, 10, panelWidth, 760), box);
+        GUILayout.BeginArea(new Rect(10, 10, panelWidth, 820), box);
         GUILayout.BeginVertical();
 
         // ── CONTROALE ─────────────────────────────
@@ -112,6 +112,23 @@ public class ExperimentUI : MonoBehaviour
                 obs.ToggleFixed();
             if (GUILayout.Button("Mobile: " + mb, btn))
                 obs.ToggleMobile();
+        }
+
+        GUILayout.Space(10);
+        if (bb_ref == null) bb_ref = TacticalBlackboard.Instance;
+        if (bb_ref != null && !bb_ref.simulationStarted)
+        {
+            // Inainte de start: buton mare verde de START.
+            GUIStyle startBtn = new GUIStyle(btn);
+            startBtn.fontSize = fontSize + 4;
+            startBtn.fontStyle = FontStyle.Bold;
+            GUI.backgroundColor = new Color(0.3f, 0.8f, 0.3f);
+            if (GUILayout.Button(">>> START <<<", startBtn, GUILayout.Height(40)))
+            {
+                bb_ref.simulationStarted = true;
+            }
+            GUI.backgroundColor = Color.white;
+            GUILayout.Label("Schimba modurile, apoi apasa START.", label);
         }
 
         GUILayout.Space(6);

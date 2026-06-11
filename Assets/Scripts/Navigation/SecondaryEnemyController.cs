@@ -32,6 +32,7 @@ public class SecondaryEnemyController : MonoBehaviour
 
     void Update()
     {
+        if (!TacticalBlackboard.IsRunning()) return;
         if (!isLiberated) return;
 
         // Fallback daca Start() nu a apucat sa ruleze

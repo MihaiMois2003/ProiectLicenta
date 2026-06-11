@@ -92,6 +92,7 @@ public class AgentBehaviorTree : MonoBehaviour
 
     void Update()
     {
+        if (!TacticalBlackboard.IsRunning()) return;
         UpdateCombatTarget();
         behaviorTree?.Evaluate();
         UpdateSpeed();

@@ -46,6 +46,7 @@ public class EnemyController : MonoBehaviour
 
     void Update()
     {
+        if (!TacticalBlackboard.IsRunning()) return;
         if (blackboard == null) return;
 
         // Verifica eliberarea inamicilor secundari (HP < 75%)

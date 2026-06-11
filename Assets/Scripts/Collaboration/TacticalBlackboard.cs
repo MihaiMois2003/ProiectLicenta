@@ -26,6 +26,16 @@ public class TacticalBlackboard : MonoBehaviour
     [Header("Combat State")]
     public CombatState combatState = CombatState.Idle;
 
+    [Header("Control simulare")]
+    [Tooltip("Cat e false, simularea e inghetata (asteapta butonul START din GUI).")]
+    public bool simulationStarted = false;
+
+    // Helper static rapid pentru toate scripturile.
+    public static bool IsRunning()
+    {
+        return Instance != null && Instance.simulationStarted;
+    }
+
     [Header("Rally (adunare in formatie inainte de atac)")]
     [Tooltip("Distanta la care Leaderul se opreste si asteapta echipa.")]
     public float rallyDistance = 11f;
@@ -76,6 +86,8 @@ public class TacticalBlackboard : MonoBehaviour
 
     void Update()
     {
+        if (!simulationStarted) return;
+
         if (combatState == CombatState.Combat)
         {
             AgentBehaviorTree leader = GetLeader();

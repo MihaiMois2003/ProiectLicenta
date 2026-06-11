@@ -24,6 +24,7 @@ public class PerceptionModule : MonoBehaviour
 
     void Update()
     {
+        if (!TacticalBlackboard.IsRunning()) return;
         FindVisibleTargets();
         UpdateMemory();
     }
