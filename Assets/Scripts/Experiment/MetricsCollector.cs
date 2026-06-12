@@ -37,6 +37,10 @@ public class MetricsCollector : MonoBehaviour
     public float totalDistanceTraveled = 0f;
     [Tooltip("Damage 'irosit' = damage dat peste HP-ul tintei (overkill cumulat).")]
     public float overkillDamage = 0f;
+    [Tooltip("Damage total dat inamicilor de catre agenti (efectiv, util).")]
+    public float damageToEnemies = 0f;
+    [Tooltip("Damage total dat agentilor de catre inamici (efectiv, util).")]
+    public float damageToAgents = 0f;
 
     private TacticalBlackboard bb;
     private bool firstContactSeen = false;
@@ -47,6 +51,19 @@ public class MetricsCollector : MonoBehaviour
     {
         if (Instance == null) Instance = this;
         else { Destroy(this); return; }
+    }
+
+    // Apelat din HealthSystem.TakeDamage. targetIsAlly = tinta lovita e agent.
+    public static void ReportDamage(float raw, float effective, float overkill, bool targetIsAlly)
+    {
+        if (Instance == null) return;
+        if (!Instance.timerRunning) return; // numara doar in timpul rularii
+
+        Instance.overkillDamage += overkill;
+        if (targetIsAlly)
+            Instance.damageToAgents += effective;   // inamicul a lovit un agent
+        else
+            Instance.damageToEnemies += effective;  // un agent a lovit inamicul
     }
 
     void Start()
@@ -72,6 +89,8 @@ public class MetricsCollector : MonoBehaviour
         firstCombatSeen = false;
         totalDistanceTraveled = 0f;
         overkillDamage = 0f;
+        damageToEnemies = 0f;
+        damageToAgents = 0f;
         lastPositions.Clear();
     }
 

@@ -43,9 +43,18 @@ public class HealthSystem : MonoBehaviour
     {
         if (isDead) return;
 
+        float hpBefore = currentHP;
         currentHP -= damage;
         currentHP = Mathf.Clamp(currentHP, 0, maxHP);
         OnHPChanged?.Invoke(currentHP);
+
+        // Raporteaza la metrici: damage efectiv (cat a contat) si overkill (irosit).
+        float effective = Mathf.Min(damage, hpBefore);
+        float overkill = Mathf.Max(0f, damage - hpBefore);
+
+        // Distingem cine a primit damage: agent (Ally) sau inamic.
+        bool isAlly = gameObject.layer == LayerMask.NameToLayer("Ally");
+        MetricsCollector.ReportDamage(damage, effective, overkill, isAlly);
 
         if (currentHP <= 0)
             Die();

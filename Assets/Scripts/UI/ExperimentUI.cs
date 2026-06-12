@@ -152,6 +152,9 @@ public class ExperimentUI : MonoBehaviour
             MetricRow("Agenti vii", m.agentsAlive + " (HP " + m.totalAgentHP.ToString("F0") + ")");
             MetricRow("Inamici vii", m.enemiesAlive + " (HP " + m.totalEnemyHP.ToString("F0") + ")");
             MetricRow("Distanta", m.totalDistanceTraveled.ToString("F0") + " u");
+            MetricRow("Dmg -> inamici", m.damageToEnemies.ToString("F0"));
+            MetricRow("Dmg -> agenti", m.damageToAgents.ToString("F0"));
+            MetricRow("Overkill (irosit)", m.overkillDamage.ToString("F0"));
 
             GUILayout.Space(4);
             if (m.finished)
