@@ -1,92 +1,147 @@
-using UnityEngine;
+﻿using UnityEngine;
+using Unity.MLAgents;
+using Unity.MLAgents.Sensors;
+using Unity.MLAgents.Actuators;
 
-// SLOT pentru decizia de tragere prin ML (PPO / ONNX).
+// Agent ML real pentru decizia de tragere a sniperului (PPO via ML-Agents).
 //
-// Acum e un STUB: nu depinde de pachetul ML-Agents, ca sa compileze fara el.
-// Cele 5 observatii din poster sunt deja calculate aici, ca sa fie gata cand
-// conectezi modelul antrenat.
+// Foloseste o singura actiune discreta cu 2 optiuni:
+//    0 = nu trage (asteapta)
+//    1 = trage
 //
-// CAND INTEGREZI ML-AGENTS REAL:
-//  1. Instaleaza pachetul com.unity.ml-agents.
-//  2. Schimba clasa sa mosteneasca Unity.MLAgents.Agent.
-//  3. In CollectObservations adaugi cele 5 valori din ComputeObservations().
-//  4. In OnActionReceived citesti actiunea discreta (0 = asteapta, 1 = trage)
-//     si o salvezi in lastDecision.
-//  5. Atasezi modelul ONNX antrenat in campul Behavior Parameters (Inference Only).
+// Cele 5 observatii din poster:
+//    1. distanta normalizata la tinta
+//    2. line-of-sight clar (0/1)
+//    3. HP tinta normalizat
+//    4. HP propriu normalizat
+//    5. fractia de aliati sub 30% HP
 //
-// Pana atunci, DecideFire foloseste o politica simpla bazata pe aceleasi observatii,
-// ca sistemul sa fie functional si demonstrabil.
-public class SniperMLAgent : MonoBehaviour
+// FLUX:
+//  - In ANTRENARE: ML-Agents cere o decizie, noi o aplicam si dam reward.
+//  - In INFERENTA (joc normal cu .onnx): la fel, dar fara reward (e ignorat).
+//  - CombatModule apeleaza DecideFire() cand sniperul vrea sa traga; noi
+//    cerem o decizie de la creier (RequestDecision) si returnam ce a ales.
+public class SniperMLAgent : Agent
 {
-    [Header("Observatii curente (readonly, pentru debug)")]
-    public float obsDistanceToTarget;   // normalizat 0..1
-    public float obsLineOfSightClear;   // 0 sau 1
-    public float obsTargetHP;           // normalizat 0..1
-    public float obsOwnHP;              // normalizat 0..1
-    public float obsAlliesBelow30;      // fractie aliati sub 30% HP
-
-    [Header("Politica de rezerva (pana exista modelul ONNX)")]
-    [Tooltip("Daca e bifat, foloseste o politica simpla bazata pe observatii. " +
-             "Cand ai modelul ONNX, debifezi si conectezi reteaua.")]
-    public bool useFallbackPolicy = true;
+    [Header("Observatii curente (readonly, debug)")]
+    public float obsDistanceToTarget;
+    public float obsLineOfSightClear;
+    public float obsTargetHP;
+    public float obsOwnHP;
+    public float obsAlliesBelow30;
 
     public float maxObservedDistance = 50f;
 
-    [HideInInspector] public bool lastDecision = false;
+    // Tinta curenta pentru care se ia decizia (setata de CombatModule).
+    private Transform currentTarget;
+    private HealthSystem currentTargetHS;
 
-    // Apelat de CombatModule cand DecisionMode = ML_PPO.
+    // Rezultatul ultimei decizii a retelei (true = trage).
+    private bool fireDecision = false;
+    private bool decisionPending = false;
+
+    // Pentru reward: retinem HP-ul tintei inainte de a trage.
+    private float targetHPBeforeShot = -1f;
+
+    // ── Apelat de CombatModule cand DecisionMode = ML_PPO ──
+    // Returneaza decizia curenta a retelei pentru aceasta tinta.
     public bool DecideFire(Transform target, HealthSystem targetHS, CombatModule cm)
     {
-        ComputeObservations(target, targetHS);
+        currentTarget = target;
+        currentTargetHS = targetHS;
 
-        // TODO: cand ai ML-Agents, aici citesti decizia retelei (lastDecision).
-        if (useFallbackPolicy)
-            lastDecision = FallbackPolicy();
+        // Cere o noua decizie de la creier (reteaua / heuristica de training).
+        // RequestDecision -> CollectObservations -> OnActionReceived (sincron).
+        RequestDecision();
 
-        return lastDecision;
+        return fireDecision;
     }
 
-    // Calculeaza cele 5 observatii din poster.
-    void ComputeObservations(Transform target, HealthSystem targetHS)
+    public override void CollectObservations(VectorSensor sensor)
     {
-        // 1. Distanta normalizata
-        float dist = Vector3.Distance(transform.position, target.position);
+        ComputeObservations();
+        sensor.AddObservation(obsDistanceToTarget);
+        sensor.AddObservation(obsLineOfSightClear);
+        sensor.AddObservation(obsTargetHP);
+        sensor.AddObservation(obsOwnHP);
+        sensor.AddObservation(obsAlliesBelow30);
+    }
+
+    public override void OnActionReceived(ActionBuffers actions)
+    {
+        int act = actions.DiscreteActions[0]; // 0 = asteapta, 1 = trage
+        fireDecision = (act == 1);
+
+        // ── REWARD SHAPING (folosit doar la antrenare) ──
+        // Recompensam deciziile bune ca sa invete cand sa traga.
+        if (fireDecision)
+        {
+            if (obsLineOfSightClear < 0.5f)
+            {
+                // A tras fara linie clara -> penalizare (irosire/risc).
+                AddReward(-0.2f);
+            }
+            else
+            {
+                // A tras cu linie clara. Bonus mai mare daca tinta e slabita
+                // (eliminari eficiente) si daca echipa e in pericol (prioritate).
+                AddReward(+0.5f);
+                if (obsTargetHP < 0.4f) AddReward(+0.5f);      // tinta aproape moarta
+                if (obsAlliesBelow30 > 0.2f) AddReward(+0.3f); // salveaza aliati
+            }
+        }
+        else
+        {
+            // A ales sa NU traga. Mic bonus daca a fost o alegere buna
+            // (fara linie clara), mica penalizare daca a ratat o ocazie clara.
+            if (obsLineOfSightClear < 0.5f) AddReward(+0.05f);
+            else AddReward(-0.05f);
+        }
+
+        // Mica penalizare pe pas, ca sa nu invete sa stea degeaba la nesfarsit.
+        AddReward(-0.001f);
+    }
+
+    // Heuristic = control manual / fallback cand NU exista model antrenat.
+    // ML-Agents foloseste asta daca Behavior Type = Heuristic Only,
+    // sau daca nu e atasat niciun model.
+    public override void Heuristic(in ActionBuffers actionsOut)
+    {
+        var d = actionsOut.DiscreteActions;
+        ComputeObservations();
+
+        bool fire = obsLineOfSightClear > 0.5f &&
+                    (obsTargetHP < 0.6f || obsAlliesBelow30 > 0.2f || obsDistanceToTarget < 0.5f);
+        d[0] = fire ? 1 : 0;
+    }
+
+    void ComputeObservations()
+    {
+        if (currentTarget == null)
+        {
+            obsDistanceToTarget = 1f;
+            obsLineOfSightClear = 0f;
+            obsTargetHP = 1f;
+            obsOwnHP = 1f;
+            obsAlliesBelow30 = 0f;
+            return;
+        }
+
+        float dist = Vector3.Distance(transform.position, currentTarget.position);
         obsDistanceToTarget = Mathf.Clamp01(dist / maxObservedDistance);
+        obsLineOfSightClear = HasLineOfSight(currentTarget) ? 1f : 0f;
+        obsTargetHP = currentTargetHS != null ? currentTargetHS.GetHPPercentage() : 1f;
 
-        // 2. Line of sight (1 daca clar)
-        obsLineOfSightClear = HasLineOfSight(target) ? 1f : 0f;
-
-        // 3. HP tinta normalizat
-        obsTargetHP = targetHS != null ? targetHS.GetHPPercentage() : 1f;
-
-        // 4. HP propriu normalizat
         HealthSystem ownHS = GetComponent<HealthSystem>();
         obsOwnHP = ownHS != null ? ownHS.GetHPPercentage() : 1f;
 
-        // 5. Fractia de aliati sub 30% HP (cat de mult e echipa in pericol)
         obsAlliesBelow30 = FractionAlliesBelow30();
-    }
-
-    // Politica simpla de rezerva: trage cand are LOS si fie tinta e slabita,
-    // fie echipa e in pericol (prioritizeaza aliatii amenintati).
-    bool FallbackPolicy()
-    {
-        if (obsLineOfSightClear < 0.5f) return false;
-
-        bool targetWeak = obsTargetHP < 0.6f;
-        bool teamInDanger = obsAlliesBelow30 > 0.2f;
-        bool targetClose = obsDistanceToTarget < 0.5f;
-
-        // Trage daca tinta e slabita, SAU echipa e in pericol si are linie clara,
-        // SAU tinta e suficient de aproape ca sa fie sigur.
-        return targetWeak || teamInDanger || targetClose;
     }
 
     float FractionAlliesBelow30()
     {
         var bb = TacticalBlackboard.Instance;
         if (bb == null) return 0f;
-
         int total = 0, low = 0;
         foreach (AgentBehaviorTree a in bb.allAgents)
         {
