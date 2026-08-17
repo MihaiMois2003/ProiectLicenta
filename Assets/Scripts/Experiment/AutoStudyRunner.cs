@@ -17,9 +17,23 @@ public class AutoStudyRunner : MonoBehaviour
              "(doar cosmetic, ca sa apuci sa vezi rezultatul daca te uiti).")]
     public float pauseBetweenRuns = 1f;
 
-    // ── Persistenta peste reload (static, ca la ExperimentConfig) ──
-    static bool studyActive = false;
-    static int planIndex = 0;
+    // ── Persistenta REALA, peste opriri/reporniri complete de Unity (nu doar reload de scena) ──
+    // Folosim PlayerPrefs in loc de campuri statice, ca planIndex sa supravietuiasca
+    // si atunci cand opresti Play-ul si il pornesti mai tarziu, ca sa poti relua
+    // studiul exact de unde ai ramas, fara sa dubleze randuri in CSV.
+    const string PrefActive = "AutoStudy_Active";
+    const string PrefIndex = "AutoStudy_PlanIndex";
+
+    static bool studyActive
+    {
+        get => PlayerPrefs.GetInt(PrefActive, 0) == 1;
+        set => PlayerPrefs.SetInt(PrefActive, value ? 1 : 0);
+    }
+    static int planIndex
+    {
+        get => PlayerPrefs.GetInt(PrefIndex, 0);
+        set => PlayerPrefs.SetInt(PrefIndex, value);
+    }
 
     bool waitingForNext = false;
     List<PlanItem> plan;
@@ -37,17 +51,22 @@ public class AutoStudyRunner : MonoBehaviour
         public string label;
     }
 
-    // Apelat din UI la click pe "START STUDIU". Porneste totul de la zero.
+    // Apelat din UI la click pe "START STUDIU". Porneste MEREU curat: sterge
+    // CSV-ul vechi si reseteaza indexul, ca sa nu amesteci niciodata date
+    // colectate sub versiuni diferite de cod (ex: inainte/dupa un bugfix).
     public static void BeginStudy()
     {
+        ExperimentLogger.ClearFile();
         studyActive = true;
         planIndex = 0;
+        PlayerPrefs.Save();
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 
     public static void StopStudy()
     {
         studyActive = false;
+        PlayerPrefs.Save();
     }
 
     public static bool IsActive => studyActive;
@@ -103,9 +122,12 @@ public class AutoStudyRunner : MonoBehaviour
         yield return new WaitForSeconds(pauseBetweenRuns);
 
         planIndex++;
+        PlayerPrefs.Save(); // scrie pe disc INAINTE de reload, ca sa nu se piarda daca inchizi Unity
+
         if (planIndex >= plan.Count)
         {
             studyActive = false;
+            PlayerPrefs.Save();
             Debug.Log("[AutoStudy] STUDIU COMPLET - toate cele " + plan.Count + " rulari s-au terminat. " +
                 "Vezi rezultatele in CSV: " + ExperimentLogger.GetFilePath());
             yield break;

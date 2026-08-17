@@ -107,4 +107,22 @@ public static class ExperimentLogger
     }
 
     public static string GetFilePath() => FilePath;
+
+    // Sterge fisierul CSV existent si reseteaza contorul de randuri.
+    // Folosit cand vrei un sweep complet nou, curat, fara date vechi amestecate
+    // (ex: dupa un bugfix care ar contamina comparatia daca ai pastra randurile vechi).
+    public static void ClearFile()
+    {
+        try
+        {
+            if (File.Exists(FilePath))
+                File.Delete(FilePath);
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning("[ExperimentLogger] Nu am putut sterge CSV-ul vechi: " + e.Message);
+        }
+        runCounter = 0;
+        announcedPath = false;
+    }
 }

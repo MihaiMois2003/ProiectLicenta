@@ -115,7 +115,7 @@ public class ExperimentUI : MonoBehaviour
         if (AutoStudyRunner.IsActive)
         {
             var runner = AutoStudyRunner.Instance;
-            int total = runner != null ? runner.TotalCount() : 130;
+            int total = runner != null ? runner.TotalCount() : 260;
             GUILayout.Label("Rularea " + (AutoStudyRunner.CurrentIndex + 1) + " / " + total, valLabel);
             if (runner != null)
                 GUILayout.Label(runner.CurrentLabel(), label);
@@ -127,7 +127,8 @@ public class ExperimentUI : MonoBehaviour
         {
             GUILayout.Label("Ruleaza singur baseline + toate variantele, x4 stari de obstacole " +
                 "(fara / doar fixe / doar mobile / toate), x5 seed-uri (100-104). " +
-                "Total 260 rulari, salvate automat in CSV. Poate dura mult.", label);
+                "Total 260 rulari. Sterge CSV-ul vechi si porneste mereu curat, de la zero.", label);
+
             if (GUILayout.Button("START STUDIU", btn, GUILayout.Height(30)))
                 AutoStudyRunner.BeginStudy();
         }

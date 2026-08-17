@@ -620,7 +620,15 @@ public class AgentBehaviorTree : MonoBehaviour
     NodeState Phase2FollowEnemy()
     {
         Transform target = blackboard.GetAssignedEnemyForGroup(groupID);
-        if (target == null) return NodeState.Failure;
+
+        if (target == null)
+        {
+            // Grupul nu are nicio tinta asignata (posibil bug de reasignare, sau
+            // groupID orfan) -> vaneaza cel mai apropiat inamic viu, indiferent
+            // de asignare. Garanteaza ca lupta converge mereu.
+            target = FindNearestLivingEnemy();
+            if (target == null) return NodeState.Failure; // niciun inamic mai e viu
+        }
 
         // Destinatia depinde de tehnica de planificare.
         Vector3 dest = ComputeApproachDestination(target.position);
@@ -637,6 +645,36 @@ public class AgentBehaviorTree : MonoBehaviour
         }
 
         return NodeState.Running;
+    }
+
+    // Fallback universal: cel mai apropiat inamic viu (principal sau secundar),
+    // indiferent de sistemul de asignare grup<->inamic.
+    Transform FindNearestLivingEnemy()
+    {
+        Transform nearest = null;
+        float minDist = Mathf.Infinity;
+
+        if (blackboard.mainEnemy != null)
+        {
+            HealthSystem hs = blackboard.mainEnemy.GetComponent<HealthSystem>();
+            if (hs != null && !hs.isDead)
+            {
+                float d = Vector3.Distance(transform.position, blackboard.mainEnemy.position);
+                if (d < minDist) { minDist = d; nearest = blackboard.mainEnemy; }
+            }
+        }
+
+        SecondaryEnemyController[] secs =
+            Object.FindObjectsByType<SecondaryEnemyController>(FindObjectsSortMode.None);
+        foreach (SecondaryEnemyController s in secs)
+        {
+            HealthSystem hs = s.GetComponent<HealthSystem>();
+            if (hs == null || hs.isDead) continue;
+            float d = Vector3.Distance(transform.position, s.transform.position);
+            if (d < minDist) { minDist = d; nearest = s.transform; }
+        }
+
+        return nearest;
     }
 
     // ── PLANIFICARE: cum se apropie liderul de grup de tinta ──
