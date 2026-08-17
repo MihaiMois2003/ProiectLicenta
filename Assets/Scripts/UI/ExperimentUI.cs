@@ -128,6 +128,18 @@ public class ExperimentUI : MonoBehaviour
             GUILayout.Space(6);
             cfg.helpRequestEnabled = ToggleRow("Help-request", cfg.helpRequestEnabled);
             cfg.supportRegenEnabled = ToggleRow("Support regen", cfg.supportRegenEnabled);
+
+            GUILayout.Space(8);
+            GUILayout.Label("Seed: " + cfg.randomSeed + (cfg.randomSeed == 0 ? " (aleator)" : ""), valLabel);
+            cfg.autoIncrementSeed = ToggleRow("Auto-increment seed", cfg.autoIncrementSeed);
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("-1", btn, GUILayout.Width(40))) cfg.randomSeed -= 1;
+            if (GUILayout.Button("+1", btn, GUILayout.Width(40))) cfg.randomSeed += 1;
+            if (GUILayout.Button("Reset la 100", btn)) cfg.randomSeed = 100;
+            GUILayout.EndHorizontal();
+
+            GUILayout.Space(6);
+            GUILayout.Label("CSV: " + ExperimentLogger.GetFilePath(), label);
         }
         else GUILayout.Label("(ExperimentConfig lipseste)", label);
 

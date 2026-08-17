@@ -84,6 +84,9 @@ public class ExperimentConfig : MonoBehaviour
     [Header("=== Reproductibilitate ===")]
     [Tooltip("Seed pentru random. Aceeasi valoare => aceeasi rulare. 0 = aleator.")]
     public int randomSeed = 12345;
+    [Tooltip("Dupa fiecare rulare logata in CSV, seed-ul creste automat cu 1 " +
+             "(pregatit pentru urmatoarea repetare). Ignorat daca seed = 0.")]
+    public bool autoIncrementSeed = true;
 
     // ── Persistenta peste reload (resetul rularii) ──
     static bool hasSaved = false;
@@ -93,7 +96,7 @@ public class ExperimentConfig : MonoBehaviour
     static PlanningMode sPlanning;
     static DecisionMode sDecision;
     static float sMemory, sCommRange, sFlank, sHelpThr, sRegen;
-    static bool sHelp, sSupportRegen;
+    static bool sHelp, sSupportRegen, sAutoInc;
     static int sSeed;
 
     void Awake()
@@ -129,6 +132,7 @@ public class ExperimentConfig : MonoBehaviour
         sSupportRegen = supportRegenEnabled;
         sRegen = supportRegenPerSecond;
         sSeed = randomSeed;
+        sAutoInc = autoIncrementSeed;
     }
 
     void RestoreSaved()
@@ -146,5 +150,6 @@ public class ExperimentConfig : MonoBehaviour
         supportRegenEnabled = sSupportRegen;
         supportRegenPerSecond = sRegen;
         randomSeed = sSeed;
+        autoIncrementSeed = sAutoInc;
     }
 }

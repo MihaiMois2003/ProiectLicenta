@@ -156,6 +156,9 @@ public class MetricsCollector : MonoBehaviour
                 outcome = RunOutcome.EnemiesWon;
                 timeAllEnemiesDead = elapsedTime; // momentul terminarii rundei (indiferent de rezultat)
             }
+
+            if (finished)
+                ExperimentLogger.LogCompletedRun(this);
         }
     }
 
