@@ -9,7 +9,11 @@ using UnityEngine.SceneManagement;
 public class ExperimentUI : MonoBehaviour
 {
     [Header("Layout")]
-    public int panelWidth = 290;
+    public int panelWidth = 300;
+
+    // Latimea totala (in pixeli) rezervata panoului, citita de SceneCameraLayout
+    // ca sa stie unde incepe zona libera pentru scena.
+    public static int ReservedPixelWidth = 320;
     public int fontSize = 13;
 
     GUIStyle panelBg, label, valLabel, btn, dropItem, header;
@@ -60,20 +64,21 @@ public class ExperimentUI : MonoBehaviour
         stylesReady = true;
     }
 
+    void Awake()
+    {
+        // panelWidth + padding-ul din stanga (8px) + o mica margine de respiratie.
+        ReservedPixelWidth = panelWidth + 20 + 16;
+    }
+
     void OnGUI()
     {
         if (!stylesReady) BuildStyles();
         if (bb_ref == null) bb_ref = TacticalBlackboard.Instance;
 
-        // Scalare pe inaltime ca sa incapa pe orice monitor.
-        float designH = 740f;
-        float scale = Mathf.Clamp(Screen.height / designH, 0.65f, 1.1f);
-        Matrix4x4 old = GUI.matrix;
-        GUI.matrix = Matrix4x4.TRS(Vector3.zero, Quaternion.identity, new Vector3(scale, scale, 1f));
-        float screenH = Screen.height / scale;
-
+        // Fara scalare prin matrice (producea blur pe text/butoane). Latimea e fixa,
+        // inaltimea se adapteaza direct la ecran; daca nu incape, scroll-ul preia.
         float w = panelWidth + 20;
-        GUILayout.BeginArea(new Rect(8, 8, w, screenH - 16), panelBg);
+        GUILayout.BeginArea(new Rect(8, 8, w, Screen.height - 16), panelBg);
         scroll = GUILayout.BeginScrollView(scroll);
 
         var cfg = ExperimentConfig.Instance;
@@ -126,6 +131,19 @@ public class ExperimentUI : MonoBehaviour
         }
         else GUILayout.Label("(ExperimentConfig lipseste)", label);
 
+        // ── VIZUALIZARE ── (afecteaza DOAR camera scenei, panoul ramane neschimbat)
+        GUILayout.Space(8);
+        GUILayout.Label("VIZUALIZARE", header);
+        var camLayout = SceneCameraLayout.Instance;
+        if (camLayout != null)
+        {
+            GUILayout.Label("Marime scena: " + camLayout.sceneZoom.ToString("F2") + "x", label);
+            float newZoom = GUILayout.HorizontalSlider(camLayout.sceneZoom, 0.4f, 3f);
+            if (!Mathf.Approximately(newZoom, camLayout.sceneZoom))
+                camLayout.SetZoom(newZoom);
+        }
+        else GUILayout.Label("(SceneCameraLayout lipseste din Main Camera)", label);
+
         // ── OBSTACOLE ──
         GUILayout.Space(8);
         GUILayout.Label("OBSTACOLE", header);
@@ -161,7 +179,15 @@ public class ExperimentUI : MonoBehaviour
             {
                 GUIStyle big = new GUIStyle(valLabel); big.fontStyle = FontStyle.Bold;
                 big.fontSize = fontSize + 2;
-                GUILayout.Label("TIMP TOTAL: " + m.timeAllEnemiesDead.ToString("F2") + " s", big);
+
+                if (m.outcome == MetricsCollector.RunOutcome.AgentsWon)
+                    GUILayout.Label("AGENTII AU CASTIGAT — timp: " +
+                        m.timeAllEnemiesDead.ToString("F2") + " s", big);
+                else if (m.outcome == MetricsCollector.RunOutcome.EnemiesWon)
+                    GUILayout.Label("INAMICII AU CASTIGAT — timp: " +
+                        m.timeAllEnemiesDead.ToString("F2") + " s", big);
+                else
+                    GUILayout.Label("TIMP TOTAL: " + m.timeAllEnemiesDead.ToString("F2") + " s", big);
             }
             else GUILayout.Label("Lupta in desfasurare...", label);
         }
@@ -170,7 +196,6 @@ public class ExperimentUI : MonoBehaviour
         GUILayout.Space(10);
         GUILayout.EndScrollView();
         GUILayout.EndArea();
-        GUI.matrix = old;
     }
 
     int Dropdown(string title, string id, int current, string[] options)

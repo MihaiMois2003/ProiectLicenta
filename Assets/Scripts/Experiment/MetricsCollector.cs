@@ -25,12 +25,16 @@ public class MetricsCollector : MonoBehaviour
     [Tooltip("Timpul (de la primul contact) cand TOTI agentii au aflat. -1 daca nu s-a intamplat.")]
     public float timeFullAwareness = -1f;
 
+    // Cine a castigat runda curenta.
+    public enum RunOutcome { None, AgentsWon, EnemiesWon }
+
     [Header("Outcome (readonly)")]
     public int agentsAlive = 0;
     public int enemiesAlive = 0;
     public float totalAgentHP = 0f;
     public float totalEnemyHP = 0f;
     public bool finished = false;
+    public RunOutcome outcome = RunOutcome.None;
 
     [Header("Eficienta (readonly)")]
     [Tooltip("Distanta totala parcursa de toti agentii (planificare proasta = drum irosit).")]
@@ -85,6 +89,7 @@ public class MetricsCollector : MonoBehaviour
         agentsAware = 0;
         timeFullAwareness = -1f;
         finished = false;
+        outcome = RunOutcome.None;
         firstContactSeen = false;
         firstCombatSeen = false;
         totalDistanceTraveled = 0f;
@@ -134,12 +139,23 @@ public class MetricsCollector : MonoBehaviour
             agentsAware >= totalAgents && totalAgents > 0)
             timeFullAwareness = elapsedTime;
 
-        // Conditie de final: cronometrul a pornit si nu mai e niciun inamic viu
-        if (firstContactSeen && !finished && enemiesAlive == 0)
+        // Conditie de final: cronometrul a pornit si o parte a fost eliminata complet.
+        if (firstContactSeen && !finished)
         {
-            finished = true;
-            timerRunning = false;
-            timeAllEnemiesDead = elapsedTime;
+            if (enemiesAlive == 0)
+            {
+                finished = true;
+                timerRunning = false;
+                outcome = RunOutcome.AgentsWon;
+                timeAllEnemiesDead = elapsedTime;
+            }
+            else if (agentsAlive == 0)
+            {
+                finished = true;
+                timerRunning = false;
+                outcome = RunOutcome.EnemiesWon;
+                timeAllEnemiesDead = elapsedTime; // momentul terminarii rundei (indiferent de rezultat)
+            }
         }
     }
 
