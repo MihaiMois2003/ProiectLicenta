@@ -152,6 +152,8 @@ MonoBehaviour:
   knowsEnemy: 0
   knownEnemyPosition: {x: 0, y: 0, z: 0}
   timeLearnedEnemy: -1
+  isRespondingToHelp: 0
+  helpTarget: {fileID: 0}
   fleeRefreshInterval: 2.5
   fleeMinDistanceFromEnemy: 12
   fleeSearchRadius: 18
@@ -170,6 +172,8 @@ MonoBehaviour:
   isEnemy: 0
   isSniper: 0
   sniperHitChance: 0.3
+  heuristicTargetHPThreshold: 0.85
+  heuristicAllyDangerRadius: 3
 --- !u!114 &47172721
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -221,6 +225,8 @@ MonoBehaviour:
   knowsEnemy: 0
   knownEnemyPosition: {x: 0, y: 0, z: 0}
   timeLearnedEnemy: -1
+  isRespondingToHelp: 0
+  helpTarget: {fileID: 0}
   fleeRefreshInterval: 2.5
   fleeMinDistanceFromEnemy: 12
   fleeSearchRadius: 18
@@ -239,6 +245,8 @@ MonoBehaviour:
   isEnemy: 0
   isSniper: 0
   sniperHitChance: 0.3
+  heuristicTargetHPThreshold: 0.85
+  heuristicAllyDangerRadius: 3
 --- !u!114 &59851739
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -507,6 +515,8 @@ MonoBehaviour:
   knowsEnemy: 0
   knownEnemyPosition: {x: 0, y: 0, z: 0}
   timeLearnedEnemy: -1
+  isRespondingToHelp: 0
+  helpTarget: {fileID: 0}
   fleeRefreshInterval: 2.5
   fleeMinDistanceFromEnemy: 12
   fleeSearchRadius: 18
@@ -525,6 +535,8 @@ MonoBehaviour:
   isEnemy: 0
   isSniper: 1
   sniperHitChance: 0.5
+  heuristicTargetHPThreshold: 0.85
+  heuristicAllyDangerRadius: 3
 --- !u!114 &206510312
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -543,6 +555,74 @@ MonoBehaviour:
   attackRange: 100
   attackCooldown: 2
   isDead: 0
+--- !u!114 &206510322
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 206510300}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3a5c9d521e5ef4759a8246a07d52221e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.ML-Agents::Unity.MLAgents.DecisionRequester
+  DecisionPeriod: 1
+  DecisionStep: 0
+  TakeActionsBetweenDecisions: 1
+--- !u!114 &206510323
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 206510300}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2adea7ef765682640852ff21f1f45821, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SniperMLAgent
+  agentParameters:
+    maxStep: 0
+  hasUpgradedFromAgentParameters: 1
+  MaxStep: 0
+  obsDistanceToTarget: 0
+  obsLineOfSightClear: 0
+  obsTargetHP: 0
+  obsOwnHP: 0
+  obsAlliesBelow30: 0
+  maxObservedDistance: 50
+--- !u!114 &206510324
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 206510300}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5d1c4e0b1822b495aa52bc52839ecb30, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.ML-Agents::Unity.MLAgents.Policies.BehaviorParameters
+  m_BrainParameters:
+    VectorObservationSize: 5
+    NumStackedVectorObservations: 1
+    m_ActionSpec:
+      m_NumContinuousActions: 0
+      BranchSizes: 02000000
+    VectorActionSize: 02000000
+    VectorActionDescriptions: []
+    VectorActionSpaceType: 0
+    hasUpgradedBrainParametersWithActionSpec: 1
+  m_Model: {fileID: 5022602860645237092, guid: 8a82ad4a52ae6f54f8906894b8d09d74, type: 3}
+  m_InferenceDevice: 0
+  m_BehaviorType: 2
+  m_BehaviorName: SniperFire
+  TeamId: 0
+  m_UseChildSensors: 1
+  m_UseChildActuators: 1
+  m_DeterministicInference: 0
+  m_ObservableAttributeHandling: 0
 --- !u!1 &245129382
 GameObject:
   m_ObjectHideFlags: 0
@@ -1379,6 +1459,8 @@ MonoBehaviour:
   knowsEnemy: 0
   knownEnemyPosition: {x: 0, y: 0, z: 0}
   timeLearnedEnemy: -1
+  isRespondingToHelp: 0
+  helpTarget: {fileID: 0}
   fleeRefreshInterval: 2.5
   fleeMinDistanceFromEnemy: 12
   fleeSearchRadius: 18
@@ -1397,6 +1479,8 @@ MonoBehaviour:
   isEnemy: 0
   isSniper: 1
   sniperHitChance: 0.5
+  heuristicTargetHPThreshold: 0.85
+  heuristicAllyDangerRadius: 3
 --- !u!114 &482943302
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1415,6 +1499,74 @@ MonoBehaviour:
   attackRange: 100
   attackCooldown: 1
   isDead: 0
+--- !u!114 &482943312
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 482943290}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3a5c9d521e5ef4759a8246a07d52221e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.ML-Agents::Unity.MLAgents.DecisionRequester
+  DecisionPeriod: 1
+  DecisionStep: 0
+  TakeActionsBetweenDecisions: 1
+--- !u!114 &482943313
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 482943290}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2adea7ef765682640852ff21f1f45821, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SniperMLAgent
+  agentParameters:
+    maxStep: 0
+  hasUpgradedFromAgentParameters: 1
+  MaxStep: 0
+  obsDistanceToTarget: 0
+  obsLineOfSightClear: 0
+  obsTargetHP: 0
+  obsOwnHP: 0
+  obsAlliesBelow30: 0
+  maxObservedDistance: 50
+--- !u!114 &482943314
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 482943290}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5d1c4e0b1822b495aa52bc52839ecb30, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.ML-Agents::Unity.MLAgents.Policies.BehaviorParameters
+  m_BrainParameters:
+    VectorObservationSize: 5
+    NumStackedVectorObservations: 1
+    m_ActionSpec:
+      m_NumContinuousActions: 0
+      BranchSizes: 02000000
+    VectorActionSize: 02000000
+    VectorActionDescriptions: []
+    VectorActionSpaceType: 0
+    hasUpgradedBrainParametersWithActionSpec: 1
+  m_Model: {fileID: 5022602860645237092, guid: 8a82ad4a52ae6f54f8906894b8d09d74, type: 3}
+  m_InferenceDevice: 0
+  m_BehaviorType: 2
+  m_BehaviorName: SniperFire
+  TeamId: 0
+  m_UseChildSensors: 1
+  m_UseChildActuators: 1
+  m_DeterministicInference: 0
+  m_ObservableAttributeHandling: 0
 --- !u!1 &600899763
 GameObject:
   m_ObjectHideFlags: 0
@@ -1765,6 +1917,8 @@ MonoBehaviour:
   knowsEnemy: 0
   knownEnemyPosition: {x: 0, y: 0, z: 0}
   timeLearnedEnemy: -1
+  isRespondingToHelp: 0
+  helpTarget: {fileID: 0}
   fleeRefreshInterval: 2.5
   fleeMinDistanceFromEnemy: 12
   fleeSearchRadius: 18
@@ -1783,6 +1937,8 @@ MonoBehaviour:
   isEnemy: 0
   isSniper: 0
   sniperHitChance: 0.3
+  heuristicTargetHPThreshold: 0.85
+  heuristicAllyDangerRadius: 3
 --- !u!114 &873262550
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1834,6 +1990,8 @@ MonoBehaviour:
   knowsEnemy: 0
   knownEnemyPosition: {x: 0, y: 0, z: 0}
   timeLearnedEnemy: -1
+  isRespondingToHelp: 0
+  helpTarget: {fileID: 0}
   fleeRefreshInterval: 2.5
   fleeMinDistanceFromEnemy: 12
   fleeSearchRadius: 18
@@ -1852,6 +2010,8 @@ MonoBehaviour:
   isEnemy: 0
   isSniper: 0
   sniperHitChance: 0.3
+  heuristicTargetHPThreshold: 0.85
+  heuristicAllyDangerRadius: 3
 --- !u!114 &957774806
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1940,6 +2100,15 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 3634723885728802610, guid: 1b6497995af5f52459dbb322dca8b254, type: 3}
       insertIndex: -1
       addedObject: {fileID: 482943301}
+    - targetCorrespondingSourceObject: {fileID: 3634723885728802610, guid: 1b6497995af5f52459dbb322dca8b254, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 482943314}
+    - targetCorrespondingSourceObject: {fileID: 3634723885728802610, guid: 1b6497995af5f52459dbb322dca8b254, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 482943313}
+    - targetCorrespondingSourceObject: {fileID: 3634723885728802610, guid: 1b6497995af5f52459dbb322dca8b254, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 482943312}
   m_SourcePrefab: {fileID: 100100000, guid: 1b6497995af5f52459dbb322dca8b254, type: 3}
 --- !u!1001 &1085504673
 PrefabInstance:
@@ -2011,6 +2180,15 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 3634723885728802610, guid: 1b6497995af5f52459dbb322dca8b254, type: 3}
       insertIndex: -1
       addedObject: {fileID: 206510311}
+    - targetCorrespondingSourceObject: {fileID: 3634723885728802610, guid: 1b6497995af5f52459dbb322dca8b254, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 206510324}
+    - targetCorrespondingSourceObject: {fileID: 3634723885728802610, guid: 1b6497995af5f52459dbb322dca8b254, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 206510323}
+    - targetCorrespondingSourceObject: {fileID: 3634723885728802610, guid: 1b6497995af5f52459dbb322dca8b254, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 206510322}
   m_SourcePrefab: {fileID: 100100000, guid: 1b6497995af5f52459dbb322dca8b254, type: 3}
 --- !u!1001 &1144387524
 PrefabInstance:
@@ -2116,6 +2294,8 @@ MonoBehaviour:
   knowsEnemy: 0
   knownEnemyPosition: {x: 0, y: 0, z: 0}
   timeLearnedEnemy: -1
+  isRespondingToHelp: 0
+  helpTarget: {fileID: 0}
   fleeRefreshInterval: 2.5
   fleeMinDistanceFromEnemy: 12
   fleeSearchRadius: 18
@@ -2134,6 +2314,8 @@ MonoBehaviour:
   isEnemy: 0
   isSniper: 0
   sniperHitChance: 0.3
+  heuristicTargetHPThreshold: 0.85
+  heuristicAllyDangerRadius: 3
 --- !u!114 &1331946191
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2185,6 +2367,8 @@ MonoBehaviour:
   knowsEnemy: 0
   knownEnemyPosition: {x: 0, y: 0, z: 0}
   timeLearnedEnemy: -1
+  isRespondingToHelp: 0
+  helpTarget: {fileID: 0}
   fleeRefreshInterval: 2.5
   fleeMinDistanceFromEnemy: 12
   fleeSearchRadius: 18
@@ -2203,6 +2387,8 @@ MonoBehaviour:
   isEnemy: 0
   isSniper: 0
   sniperHitChance: 0.3
+  heuristicTargetHPThreshold: 0.85
+  heuristicAllyDangerRadius: 3
 --- !u!114 &1352697053
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2253,6 +2439,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TacticalBlackboard
   combatState: 0
+  simulationStarted: 0
   rallyDistance: 11
   formationTolerance: 2.5
   rallyReadyFraction: 0.6
@@ -2316,6 +2503,8 @@ MonoBehaviour:
   finished: 0
   totalDistanceTraveled: 0
   overkillDamage: 0
+  damageToEnemies: 0
+  damageToAgents: 0
 --- !u!114 &1451756422
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2332,7 +2521,7 @@ MonoBehaviour:
   communicationMode: 0
   collaborationMode: 0
   planningMode: 0
-  decisionMode: 0
+  decisionMode: 2
   memoryDuration: 4
   commRange: 12
   flankRadius: 6
@@ -2445,6 +2634,8 @@ MonoBehaviour:
   knowsEnemy: 0
   knownEnemyPosition: {x: 0, y: 0, z: 0}
   timeLearnedEnemy: -1
+  isRespondingToHelp: 0
+  helpTarget: {fileID: 0}
   fleeRefreshInterval: 2.5
   fleeMinDistanceFromEnemy: 12
   fleeSearchRadius: 18
@@ -2463,6 +2654,8 @@ MonoBehaviour:
   isEnemy: 0
   isSniper: 0
   sniperHitChance: 0.3
+  heuristicTargetHPThreshold: 0.85
+  heuristicAllyDangerRadius: 3
 --- !u!114 &1465579345
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2514,6 +2707,8 @@ MonoBehaviour:
   knowsEnemy: 0
   knownEnemyPosition: {x: 0, y: 0, z: 0}
   timeLearnedEnemy: -1
+  isRespondingToHelp: 0
+  helpTarget: {fileID: 0}
   fleeRefreshInterval: 2.5
   fleeMinDistanceFromEnemy: 12
   fleeSearchRadius: 18
@@ -2532,6 +2727,8 @@ MonoBehaviour:
   isEnemy: 0
   isSniper: 0
   sniperHitChance: 0.3
+  heuristicTargetHPThreshold: 0.85
+  heuristicAllyDangerRadius: 3
 --- !u!114 &1548413950
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2824,6 +3021,8 @@ MonoBehaviour:
   knowsEnemy: 0
   knownEnemyPosition: {x: 0, y: 0, z: 0}
   timeLearnedEnemy: -1
+  isRespondingToHelp: 0
+  helpTarget: {fileID: 0}
   fleeRefreshInterval: 2.5
   fleeMinDistanceFromEnemy: 12
   fleeSearchRadius: 18
@@ -2842,6 +3041,8 @@ MonoBehaviour:
   isEnemy: 0
   isSniper: 0
   sniperHitChance: 0.3
+  heuristicTargetHPThreshold: 0.85
+  heuristicAllyDangerRadius: 3
 --- !u!114 &1912582979
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3048,6 +3249,8 @@ MonoBehaviour:
   isEnemy: 1
   isSniper: 0
   sniperHitChance: 0.3
+  heuristicTargetHPThreshold: 0.85
+  heuristicAllyDangerRadius: 3
 --- !u!114 &2110420492
 MonoBehaviour:
   m_ObjectHideFlags: 0
