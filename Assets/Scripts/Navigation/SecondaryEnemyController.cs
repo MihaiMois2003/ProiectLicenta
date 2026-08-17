@@ -199,53 +199,49 @@ public class SecondaryEnemyController : MonoBehaviour
         navAgent.speed = chaseSpeed;
 
         EnemyGroup myGroup = blackboard.GetGroupAssignedToEnemy(transform);
-        if (myGroup == null || myGroup.agents.Count == 0)
-        {
-            ChaseNearestSniper();
-            return;
-        }
-
         Vector3 groupCenter = Vector3.zero;
         int count = 0;
-        foreach (AgentBehaviorTree a in myGroup.agents)
+
+        if (myGroup != null)
         {
-            HealthSystem hs = a.GetComponent<HealthSystem>();
-            if (hs == null || hs.isDead) continue;
-            groupCenter += a.transform.position;
-            count++;
-        }
-
-        if (count == 0)
-        {
-            ChaseNearestSniper();
-            return;
-        }
-
-        groupCenter /= count;
-
-        if (navAgent.isOnNavMesh)
-            navAgent.SetDestination(groupCenter);
-    }
-
-    void ChaseNearestSniper()
-    {
-        Transform nearestSniper = null;
-        float minDist = Mathf.Infinity;
-        foreach (AgentBehaviorTree a in blackboard.allAgents)
-        {
-            if (a == null || a.role != AgentRole.Sniper) continue;
-            HealthSystem hs = a.GetComponent<HealthSystem>();
-            if (hs == null || hs.isDead) continue;
-            float dist = Vector3.Distance(transform.position, a.transform.position);
-            if (dist < minDist)
+            foreach (AgentBehaviorTree a in myGroup.agents)
             {
-                minDist = dist;
-                nearestSniper = a.transform;
+                if (a == null) continue;
+                HealthSystem hs = a.GetComponent<HealthSystem>();
+                if (hs == null || hs.isDead) continue;
+                groupCenter += a.transform.position;
+                count++;
             }
         }
 
-        if (nearestSniper != null && navAgent.isOnNavMesh)
-            navAgent.SetDestination(nearestSniper.position);
+        if (count > 0)
+        {
+            groupCenter /= count;
+            if (navAgent.isOnNavMesh)
+                navAgent.SetDestination(groupCenter);
+            return;
+        }
+
+        // Grupul asignat e gol sau mort -> vaneaza cel mai apropiat agent viu,
+        // indiferent de grup sau rol. Garanteaza ca lupta converge mereu.
+        ChaseNearestLivingAgent();
+    }
+
+    void ChaseNearestLivingAgent()
+    {
+        Transform nearest = null;
+        float minDist = Mathf.Infinity;
+        foreach (AgentBehaviorTree a in blackboard.allAgents)
+        {
+            if (a == null) continue;
+            HealthSystem hs = a.GetComponent<HealthSystem>();
+            if (hs == null || hs.isDead) continue;
+            float dist = Vector3.Distance(transform.position, a.transform.position);
+            if (dist < minDist) { minDist = dist; nearest = a.transform; }
+        }
+
+        if (nearest != null && navAgent.isOnNavMesh)
+            navAgent.SetDestination(nearest.position);
         else
             StopMoving();
     }

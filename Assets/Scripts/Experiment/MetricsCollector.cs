@@ -35,6 +35,14 @@ public class MetricsCollector : MonoBehaviour
     public float totalEnemyHP = 0f;
     public bool finished = false;
     public RunOutcome outcome = RunOutcome.None;
+    [Tooltip("Adevarat daca runda s-a incheiat fortat prin timeout, nu prin eliminare completa.")]
+    public bool timedOut = false;
+
+    [Header("Watchdog (siguranta)")]
+    [Tooltip("Daca o rulare depaseste acest timp (secunde) de la primul contact fara sa se " +
+             "incheie natural, se forteaza un final, decis dupa cine avea mai mult HP total. " +
+             "Garanteaza ca niciun batch de masuratori nu ramane blocat la infinit.")]
+    public float maxRunDuration = 180f;
 
     [Header("Eficienta (readonly)")]
     [Tooltip("Distanta totala parcursa de toti agentii (planificare proasta = drum irosit).")]
@@ -90,6 +98,7 @@ public class MetricsCollector : MonoBehaviour
         timeFullAwareness = -1f;
         finished = false;
         outcome = RunOutcome.None;
+        timedOut = false;
         firstContactSeen = false;
         firstCombatSeen = false;
         totalDistanceTraveled = 0f;
@@ -155,6 +164,17 @@ public class MetricsCollector : MonoBehaviour
                 timerRunning = false;
                 outcome = RunOutcome.EnemiesWon;
                 timeAllEnemiesDead = elapsedTime; // momentul terminarii rundei (indiferent de rezultat)
+            }
+            else if (elapsedTime >= maxRunDuration)
+            {
+                // Watchdog: runda a durat prea mult (posibil blocaj rar de coordonare).
+                // Se forteaza un final curat, decis dupa cine avea mai mult HP total ramas,
+                // ca sa nu ramana niciodata o masuratoare agatata la infinit.
+                finished = true;
+                timerRunning = false;
+                timedOut = true;
+                outcome = (totalAgentHP >= totalEnemyHP) ? RunOutcome.AgentsWon : RunOutcome.EnemiesWon;
+                timeAllEnemiesDead = elapsedTime;
             }
 
             if (finished)

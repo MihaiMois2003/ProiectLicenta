@@ -22,7 +22,7 @@ public static class ExperimentLogger
         "run", "timestamp", "seed",
         "perception", "communication", "collaboration", "planning", "decision",
         "helpRequest", "supportRegen", "obstaclesFixed", "obstaclesMobile",
-        "outcome",
+        "outcome", "timedOut",
         "totalTime_s", "detectionTime_s", "reactionTime_s", "timeFullAwareness_s",
         "agentsAlive", "enemiesAlive", "totalAgentHP", "totalEnemyHP",
         "distanceTraveled", "damageToEnemies", "damageToAgents", "overkillDamage"
@@ -51,6 +51,7 @@ public static class ExperimentLogger
             obs != null ? obs.FixedActive.ToString() : "",
             obs != null ? obs.MobileActive.ToString() : "",
             m.outcome.ToString(),
+            m.timedOut.ToString(),
             Inv(m.timeAllEnemiesDead),
             Inv(m.detectionTime),
             Inv(m.reactionTime),

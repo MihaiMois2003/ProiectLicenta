@@ -2,6 +2,7 @@
 using Unity.MLAgents;
 using Unity.MLAgents.Sensors;
 using Unity.MLAgents.Actuators;
+using Unity.MLAgents.Policies;
 
 // Agent ML real pentru decizia de tragere a sniperului (PPO via ML-Agents).
 //
@@ -40,8 +41,36 @@ public class SniperMLAgent : Agent
     private bool fireDecision = false;
     private bool decisionPending = false;
 
+    [Header("Debug (pentru verificare)")]
+    [Tooltip("Cand e bifat, afiseaza in Console fiecare decizie + observatiile care au dus la ea. " +
+             "Dezactiveaza inainte de masuratori reale, ca sa nu umple Console-ul.")]
+    public bool debugLogDecisions = false;
+
     // Pentru reward: retinem HP-ul tintei inainte de a trage.
     private float targetHPBeforeShot = -1f;
+
+    void Start()
+    {
+        // Confirmare o singura data la pornire: ruleaza pe modelul antrenat,
+        // sau pe euristica de rezerva (Heuristic)? Util ca sa nu crezi ca
+        // testezi ML cand de fapt Behavior Type e gresit setat.
+        var bp = GetComponent<BehaviorParameters>();
+        if (bp == null)
+        {
+            Debug.LogWarning($"[ML-Sniper:{gameObject.name}] Lipseste Behavior Parameters! " +
+                "Adauga-l pe acest GameObject pentru ca ML_PPO sa functioneze.");
+            return;
+        }
+
+        bool hasModel = bp.Model != null;
+        string status = bp.BehaviorType == BehaviorType.InferenceOnly && hasModel
+            ? "MODEL ONNX ACTIV (reteaua antrenata decide)"
+            : bp.BehaviorType == BehaviorType.HeuristicOnly || !hasModel
+                ? "FALLBACK Heuristic() - NU foloseste reteaua! Verifica Behavior Type si Model."
+                : $"mod {bp.BehaviorType}, model {(hasModel ? "prezent" : "LIPSA")}";
+
+        Debug.Log($"[ML-Sniper:{gameObject.name}] Status la pornire: {status}");
+    }
 
     // ── Apelat de CombatModule cand DecisionMode = ML_PPO ──
     // Returneaza decizia curenta a retelei pentru aceasta tinta.
@@ -72,6 +101,23 @@ public class SniperMLAgent : Agent
         int act = actions.DiscreteActions[0]; // 0 = asteapta, 1 = trage
         fireDecision = (act == 1);
 
+        // DecisionRequester cere decizii pe propriul lui ritm, indiferent de starea
+        // jocului (chiar si inainte de START sau cand sniperul nu are inca nicio
+        // tinta). Fara tinta reala, decizia n-are sens si n-are niciun efect
+        // (CombatModule nu va trage), deci ignoram complet reward-ul si logul.
+        if (currentTarget == null)
+        {
+            fireDecision = false;
+            return;
+        }
+
+        if (debugLogDecisions)
+        {
+            Debug.Log($"[ML-Sniper:{gameObject.name}] decizie={(fireDecision ? "TRAGE" : "asteapta")} " +
+                $"| dist={obsDistanceToTarget:F2} LOS={obsLineOfSightClear:F0} " +
+                $"targetHP={obsTargetHP:F2} ownHP={obsOwnHP:F2} aliatiJos={obsAlliesBelow30:F2}");
+        }
+
         // ── REWARD SHAPING (folosit doar la antrenare) ──
         // Recompensam deciziile bune ca sa invete cand sa traga.
         if (fireDecision)
@@ -100,6 +146,13 @@ public class SniperMLAgent : Agent
 
         // Mica penalizare pe pas, ca sa nu invete sa stea degeaba la nesfarsit.
         AddReward(-0.001f);
+
+        // "Consumam" tinta dupa aceasta decizie. DecisionRequester va tot cere
+        // decizii pe ritmul lui propriu; fara asta, ar continua sa evalueze
+        // aceeasi tinta veche/expirata la nesfarsit intre apelurile reale ale
+        // CombatModule, poluand reward-ul si logul cu decizii fara sens.
+        currentTarget = null;
+        currentTargetHS = null;
     }
 
     // Heuristic = control manual / fallback cand NU exista model antrenat.
