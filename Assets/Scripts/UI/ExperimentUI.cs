@@ -16,8 +16,8 @@ public class ExperimentUI : MonoBehaviour
     public static int ReservedPixelWidth = 320;
     public int fontSize = 13;
 
-    GUIStyle panelBg, label, valLabel, btn, dropItem, header;
-    Texture2D texPanel, texBtn, texBtnSel;
+    GUIStyle panelBg, sectionBg, label, valLabel, btn, dropItem, header;
+    Texture2D texPanel, texSection, texBtn, texBtnSel;
     bool stylesReady = false;
 
     Vector2 scroll = Vector2.zero;
@@ -29,12 +29,18 @@ public class ExperimentUI : MonoBehaviour
     void BuildStyles()
     {
         texPanel = Tex(new Color(0.11f, 0.11f, 0.12f, 0.97f));
+        texSection = Tex(new Color(0.16f, 0.14f, 0.08f, 1f)); // nuanta calda, distincta de restul panoului
         texBtn = Tex(new Color(0.20f, 0.20f, 0.22f, 1f));
         texBtnSel = Tex(new Color(0.33f, 0.33f, 0.36f, 1f));
 
         panelBg = new GUIStyle();
         panelBg.normal.background = texPanel;
         panelBg.padding = new RectOffset(10, 10, 10, 10);
+
+        sectionBg = new GUIStyle();
+        sectionBg.normal.background = texSection;
+        sectionBg.padding = new RectOffset(8, 8, 6, 8);
+        sectionBg.margin = new RectOffset(0, 0, 0, 4);
 
         header = new GUIStyle();
         header.fontSize = fontSize;
@@ -100,6 +106,32 @@ public class ExperimentUI : MonoBehaviour
                 SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
             }
         }
+
+        // ── STUDIU AUTOMAT ── (vizual separat, cu chenar propriu)
+        GUILayout.Space(8);
+        GUILayout.BeginVertical(sectionBg);
+        GUILayout.Label("STUDIU AUTOMAT (ablation)", header);
+
+        if (AutoStudyRunner.IsActive)
+        {
+            var runner = AutoStudyRunner.Instance;
+            int total = runner != null ? runner.TotalCount() : 130;
+            GUILayout.Label("Rularea " + (AutoStudyRunner.CurrentIndex + 1) + " / " + total, valLabel);
+            if (runner != null)
+                GUILayout.Label(runner.CurrentLabel(), label);
+
+            if (GUILayout.Button("OPRESTE STUDIUL", btn))
+                AutoStudyRunner.StopStudy();
+        }
+        else
+        {
+            GUILayout.Label("Ruleaza singur baseline + toate variantele, x4 stari de obstacole " +
+                "(fara / doar fixe / doar mobile / toate), x5 seed-uri (100-104). " +
+                "Total 260 rulari, salvate automat in CSV. Poate dura mult.", label);
+            if (GUILayout.Button("START STUDIU", btn, GUILayout.Height(30)))
+                AutoStudyRunner.BeginStudy();
+        }
+        GUILayout.EndVertical();
 
         // ── TEHNICI ──
         GUILayout.Space(8);
