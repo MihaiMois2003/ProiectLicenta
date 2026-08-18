@@ -96,66 +96,53 @@ public class ExperimentUI : MonoBehaviour
         {
             if (GUILayout.Button("START", btn, GUILayout.Height(32)))
                 bb_ref.simulationStarted = true;
-            GUILayout.Label("Alege modurile, apoi START.", label);
+            GUILayout.Label("Choose the techniques, then press START.", label);
         }
         else
         {
-            if (GUILayout.Button("RESET RULARE", btn, GUILayout.Height(28)))
+            if (GUILayout.Button("RESET RUN", btn, GUILayout.Height(28)))
             {
                 if (cfg != null) cfg.SaveForReload();
                 SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
             }
         }
 
-        // ── STUDIU AUTOMAT ── (vizual separat, cu chenar propriu)
+        // ── AUTOMATED STUDY ── just the button, plain, like START
         GUILayout.Space(8);
-        GUILayout.BeginVertical(sectionBg);
-        GUILayout.Label("STUDIU AUTOMAT (ablation)", header);
 
         if (AutoStudyRunner.IsActive)
         {
-            var runner = AutoStudyRunner.Instance;
-            int total = runner != null ? runner.TotalCount() : 260;
-            GUILayout.Label("Rularea " + (AutoStudyRunner.CurrentIndex + 1) + " / " + total, valLabel);
-            if (runner != null)
-                GUILayout.Label(runner.CurrentLabel(), label);
-
-            if (GUILayout.Button("OPRESTE STUDIUL", btn))
+            if (GUILayout.Button("STOP STUDY", btn, GUILayout.Height(30)))
                 AutoStudyRunner.StopStudy();
         }
         else
         {
-            GUILayout.Label("Ruleaza singur baseline + toate variantele, x4 stari de obstacole " +
-                "(fara / doar fixe / doar mobile / toate), x5 seed-uri (100-104). " +
-                "Total 260 rulari. Sterge CSV-ul vechi si porneste mereu curat, de la zero.", label);
-
-            if (GUILayout.Button("START STUDIU", btn, GUILayout.Height(30)))
+            if (GUILayout.Button("START STUDY", btn, GUILayout.Height(30)))
                 AutoStudyRunner.BeginStudy();
         }
-        GUILayout.EndVertical();
 
-        // ── TEHNICI ──
+        // ── TECHNIQUES ──
         GUILayout.Space(8);
-        GUILayout.Label("TEHNICI", header);
+        GUILayout.Label("TECHNIQUES", header);
 
         if (cfg != null)
         {
-            cfg.perceptionMode = (PerceptionMode)Dropdown("Perceptie", "perc",
+            cfg.perceptionMode = (PerceptionMode)Dropdown("Perception", "perc",
                 (int)cfg.perceptionMode, System.Enum.GetNames(typeof(PerceptionMode)));
 
-            cfg.communicationMode = (CommunicationMode)Dropdown("Comunicare", "comm",
+            cfg.communicationMode = (CommunicationMode)Dropdown("Communication", "comm",
                 (int)cfg.communicationMode, System.Enum.GetNames(typeof(CommunicationMode)));
             if (cfg.communicationMode == CommunicationMode.LocalBroadcast ||
                 cfg.communicationMode == CommunicationMode.Relay)
                 GUILayout.Label("  commRange: " + cfg.commRange.ToString("F1"), label);
 
-            cfg.collaborationMode = (CollaborationMode)Dropdown("Colaborare", "collab",
+            cfg.collaborationMode = (CollaborationMode)Dropdown("Collaboration", "collab",
                 (int)cfg.collaborationMode, System.Enum.GetNames(typeof(CollaborationMode)));
 
-            cfg.planningMode = (PlanningMode)Dropdown("Planificare", "plan",
+            cfg.planningMode = (PlanningMode)Dropdown("Planning", "plan",
                 (int)cfg.planningMode, System.Enum.GetNames(typeof(PlanningMode)));
 
-            cfg.decisionMode = (DecisionMode)Dropdown("Decizie sniper", "dec",
+            cfg.decisionMode = (DecisionMode)Dropdown("Sniper decision", "dec",
                 (int)cfg.decisionMode, System.Enum.GetNames(typeof(DecisionMode)));
 
             GUILayout.Space(6);
@@ -163,61 +150,58 @@ public class ExperimentUI : MonoBehaviour
             cfg.supportRegenEnabled = ToggleRow("Support regen", cfg.supportRegenEnabled);
 
             GUILayout.Space(8);
-            GUILayout.Label("Seed: " + cfg.randomSeed + (cfg.randomSeed == 0 ? " (aleator)" : ""), valLabel);
+            GUILayout.Label("Seed: " + cfg.randomSeed + (cfg.randomSeed == 0 ? " (random)" : ""), valLabel);
             cfg.autoIncrementSeed = ToggleRow("Auto-increment seed", cfg.autoIncrementSeed);
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("-1", btn, GUILayout.Width(40))) cfg.randomSeed -= 1;
             if (GUILayout.Button("+1", btn, GUILayout.Width(40))) cfg.randomSeed += 1;
-            if (GUILayout.Button("Reset la 100", btn)) cfg.randomSeed = 100;
+            if (GUILayout.Button("Reset to 100", btn)) cfg.randomSeed = 100;
             GUILayout.EndHorizontal();
-
-            GUILayout.Space(6);
-            GUILayout.Label("CSV: " + ExperimentLogger.GetFilePath(), label);
         }
-        else GUILayout.Label("(ExperimentConfig lipseste)", label);
+        else GUILayout.Label("(ExperimentConfig missing)", label);
 
-        // ── VIZUALIZARE ── (afecteaza DOAR camera scenei, panoul ramane neschimbat)
+        // ── VIEW ── (affects ONLY the scene camera, panel stays unchanged)
         GUILayout.Space(8);
-        GUILayout.Label("VIZUALIZARE", header);
+        GUILayout.Label("VIEW", header);
         var camLayout = SceneCameraLayout.Instance;
         if (camLayout != null)
         {
-            GUILayout.Label("Marime scena: " + camLayout.sceneZoom.ToString("F2") + "x", label);
+            GUILayout.Label("Scene zoom: " + camLayout.sceneZoom.ToString("F2") + "x", label);
             float newZoom = GUILayout.HorizontalSlider(camLayout.sceneZoom, 0.4f, 3f);
             if (!Mathf.Approximately(newZoom, camLayout.sceneZoom))
                 camLayout.SetZoom(newZoom);
         }
-        else GUILayout.Label("(SceneCameraLayout lipseste din Main Camera)", label);
+        else GUILayout.Label("(SceneCameraLayout missing from Main Camera)", label);
 
-        // ── OBSTACOLE ──
+        // ── OBSTACLES ──
         GUILayout.Space(8);
-        GUILayout.Label("OBSTACOLE", header);
+        GUILayout.Label("OBSTACLES", header);
         if (obs != null)
         {
-            if (ToggleRow("Fixe", obs.FixedActive) != obs.FixedActive) obs.ToggleFixed();
+            if (ToggleRow("Fixed", obs.FixedActive) != obs.FixedActive) obs.ToggleFixed();
             if (ToggleRow("Mobile", obs.MobileActive) != obs.MobileActive) obs.ToggleMobile();
         }
 
-        // ── METRICI ──
+        // ── METRICS ──
         GUILayout.Space(10);
-        GUILayout.Label("METRICI", header);
+        GUILayout.Label("METRICS", header);
 
         if (m != null)
         {
             if (bb_ref != null)
-                MetricRow("Stare", bb_ref.combatState + (bb_ref.phase2Active ? " (F2)" : ""));
-            MetricRow("Timp scurs", m.elapsedTime.ToString("F2") + " s" +
+                MetricRow("State", bb_ref.combatState + (bb_ref.phase2Active ? " (Phase 2)" : ""));
+            MetricRow("Elapsed time", m.elapsedTime.ToString("F2") + " s" +
                 (m.timerRunning ? "  *" : ""));
-            MetricRow("Timp detectie", Fmt(m.detectionTime));
-            MetricRow("Reactie", Fmt(m.reactionTime));
-            MetricRow("Constientizare", m.agentsAware + "/" + m.totalAgents);
-            MetricRow("Timp toti stiu", Fmt(m.timeFullAwareness));
-            MetricRow("Agenti vii", m.agentsAlive + " (HP " + m.totalAgentHP.ToString("F0") + ")");
-            MetricRow("Inamici vii", m.enemiesAlive + " (HP " + m.totalEnemyHP.ToString("F0") + ")");
-            MetricRow("Distanta", m.totalDistanceTraveled.ToString("F0") + " u");
-            MetricRow("Dmg -> inamici", m.damageToEnemies.ToString("F0"));
-            MetricRow("Dmg -> agenti", m.damageToAgents.ToString("F0"));
-            MetricRow("Overkill (irosit)", m.overkillDamage.ToString("F0"));
+            MetricRow("Detection time", Fmt(m.detectionTime));
+            MetricRow("Reaction", Fmt(m.reactionTime));
+            MetricRow("Awareness", m.agentsAware + "/" + m.totalAgents);
+            MetricRow("Full awareness at", Fmt(m.timeFullAwareness));
+            MetricRow("Agents alive", m.agentsAlive + " (HP " + m.totalAgentHP.ToString("F0") + ")");
+            MetricRow("Enemies alive", m.enemiesAlive + " (HP " + m.totalEnemyHP.ToString("F0") + ")");
+            MetricRow("Distance", m.totalDistanceTraveled.ToString("F0") + " u");
+            MetricRow("Dmg -> enemies", m.damageToEnemies.ToString("F0"));
+            MetricRow("Dmg -> agents", m.damageToAgents.ToString("F0"));
+            MetricRow("Overkill (wasted)", m.overkillDamage.ToString("F0"));
 
             GUILayout.Space(4);
             if (m.finished)
@@ -226,17 +210,17 @@ public class ExperimentUI : MonoBehaviour
                 big.fontSize = fontSize + 2;
 
                 if (m.outcome == MetricsCollector.RunOutcome.AgentsWon)
-                    GUILayout.Label("AGENTII AU CASTIGAT — timp: " +
+                    GUILayout.Label("AGENTS WON — time: " +
                         m.timeAllEnemiesDead.ToString("F2") + " s", big);
                 else if (m.outcome == MetricsCollector.RunOutcome.EnemiesWon)
-                    GUILayout.Label("INAMICII AU CASTIGAT — timp: " +
+                    GUILayout.Label("ENEMIES WON — time: " +
                         m.timeAllEnemiesDead.ToString("F2") + " s", big);
                 else
-                    GUILayout.Label("TIMP TOTAL: " + m.timeAllEnemiesDead.ToString("F2") + " s", big);
+                    GUILayout.Label("TOTAL TIME: " + m.timeAllEnemiesDead.ToString("F2") + " s", big);
             }
-            else GUILayout.Label("Lupta in desfasurare...", label);
+            else GUILayout.Label("Battle in progress...", label);
         }
-        else GUILayout.Label("(MetricsCollector lipseste)", label);
+        else GUILayout.Label("(MetricsCollector missing)", label);
 
         GUILayout.Space(10);
         GUILayout.EndScrollView();
