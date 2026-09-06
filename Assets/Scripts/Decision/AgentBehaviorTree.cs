@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 public class AgentBehaviorTree : MonoBehaviour
 {
@@ -28,21 +28,17 @@ public class AgentBehaviorTree : MonoBehaviour
     [Tooltip("Distanta minima pe care grupul incearca sa o pastreze fata de inamic in reversal.")]
     public float fleeDistance = 15f;
 
-    // Tinta de combat curenta - citita de CombatModule pentru a sti pe cine atacam
     [HideInInspector]
     public Transform currentCombatTarget;
 
-    // ── Cunoastere locala despre inamic (folosit la CommunicationMode.LocalBroadcast) ──
-    // In modul Blackboard aceste campuri sunt ignorate (toata lumea "stie" prin starea globala).
     [HideInInspector] public bool knowsEnemy = false;
     [HideInInspector] public Vector3 knownEnemyPosition;
     [HideInInspector] public float timeLearnedEnemy = -1f;
 
-    // Helper: agentul "stie" de inamic? In Blackboard = starea globala; in Local = flagul propriu.
     public bool KnowsEnemy()
     {
         if (blackboard == null) return false;
-        // In Faza 2 toti agentii au tinte asignate -> stiu prin definitie.
+
         if (blackboard.phase2Active) return true;
         var cfg = ExperimentConfig.Instance;
         if (cfg == null || cfg.communicationMode == CommunicationMode.Blackboard)
@@ -50,7 +46,6 @@ public class AgentBehaviorTree : MonoBehaviour
         return knowsEnemy;
     }
 
-    // Apelat de Blackboard cand un raport ajunge la acest agent.
     public void ReceiveEnemyReport(Vector3 position)
     {
         if (!knowsEnemy) timeLearnedEnemy = Time.time;
@@ -87,7 +82,7 @@ public class AgentBehaviorTree : MonoBehaviour
         blackboard = TacticalBlackboard.Instance;
         blackboard?.RegisterAgent(this);
         BuildBehaviorTree();
-        // Nu setam destinatie aici - patrularea porneste dupa START.
+
     }
 
     private bool agentInitialized = false;
@@ -96,7 +91,7 @@ public class AgentBehaviorTree : MonoBehaviour
     {
         if (!TacticalBlackboard.IsRunning())
         {
-            // Inghetat: tine agentul pe loc.
+
             var na = GetComponent<UnityEngine.AI.NavMeshAgent>();
             if (na != null && na.isOnNavMesh)
             {
@@ -124,8 +119,6 @@ public class AgentBehaviorTree : MonoBehaviour
     [HideInInspector] public bool isRespondingToHelp = false;
     [HideInInspector] public AgentBehaviorTree helpTarget = null;
 
-    // Sistem de cerere de ajutor: agentul sub prag cere ajutor; cel mai apropiat
-    // aliat sanatos vine spre el. Activat din config (helpRequestEnabled).
     void UpdateHelpRequest()
     {
         var cfg = ExperimentConfig.Instance;
@@ -135,26 +128,23 @@ public class AgentBehaviorTree : MonoBehaviour
         HealthSystem ownHS = GetComponent<HealthSystem>();
         if (ownHS == null || ownHS.isDead) return;
 
-        // Sniperii nu cer si nu raspund (raman la pozitie).
         if (role == AgentRole.Sniper) return;
 
-        // 1. Daca sunt sub prag, cer ajutor.
         if (ownHS.GetHPPercentage() < cfg.helpRequestThreshold)
         {
             blackboard.RequestHelp(agentID);
         }
         else
         {
-            blackboard.ResolveHelp(agentID); // m-am refacut, nu mai cer
+            blackboard.ResolveHelp(agentID);
         }
 
-        // 2. Daca eu sunt sanatos, verific daca trebuie sa raspund la o cerere.
         if (ownHS.GetHPPercentage() >= cfg.helpRequestThreshold)
         {
             AgentBehaviorTree needy = FindNearestHelpRequester();
             if (needy != null && needy != this)
             {
-                // Sunt cel mai apropiat aliat sanatos de cel ranit? Atunci ma duc.
+
                 if (AmINearestHelperTo(needy))
                 {
                     isRespondingToHelp = true;
@@ -196,12 +186,11 @@ public class AgentBehaviorTree : MonoBehaviour
             if (hs == null || hs.isDead) continue;
             if (hs.GetHPPercentage() < (cfg != null ? cfg.helpRequestThreshold : 0.3f)) continue;
             float d = Vector3.Distance(a.transform.position, needy.transform.position);
-            if (d < myDist) return false; // altcineva e mai aproape
+            if (d < myDist) return false;
         }
         return true;
     }
 
-    // Support regenereaza HP-ul aliatilor vii din jur (daca e activat in config).
     void UpdateSupportRegen()
     {
         if (role != AgentRole.Support) return;
@@ -225,27 +214,22 @@ public class AgentBehaviorTree : MonoBehaviour
         }
     }
 
-    // Stabileste tinta de combat curenta in functie de faza si rol.
-    // CombatModule citeste acest camp ca sa stie pe cine sa atace.
     void UpdateCombatTarget()
     {
         if (blackboard == null) { currentCombatTarget = null; return; }
 
-        // Sniperii isi gestioneaza singuri tinta in CombatModule (sniperPrivateTarget)
         if (role == AgentRole.Sniper)
         {
             currentCombatTarget = null;
             return;
         }
 
-        // Faza 2: tinta = inamicul asignat grupului
         if (blackboard.phase2Active)
         {
             currentCombatTarget = blackboard.GetAssignedEnemyForGroup(groupID);
             return;
         }
 
-        // Faza 1: tinta = mainEnemy daca suntem in Combat
         if (blackboard.combatState == CombatState.Combat)
         {
             currentCombatTarget = blackboard.mainEnemy;
@@ -262,7 +246,6 @@ public class AgentBehaviorTree : MonoBehaviour
 
         if (role == AgentRole.Sniper) return;
 
-        // ── FAZA 2 ──
         if (blackboard.phase2Active)
         {
             AgentBehaviorTree groupLeader = GetGroupLeader();
@@ -270,26 +253,25 @@ public class AgentBehaviorTree : MonoBehaviour
 
             if (blackboard.rolesReversed)
             {
-                // REVERSAL: agentii FUG de inamici -> viteza MICA, ca inamicii sa-i prinda.
+
                 agentController.SetSpeed(reversalFleeSpeed);
             }
             else if (iAmGroupLeader)
             {
-                // Normal: liderul de grup urmareste inamicul care fuge -> viteza mare.
+
                 agentController.SetSpeed(catchUpSpeed);
             }
             else
             {
-                // Restul grupului: catch-up daca a ramas in urma fata de slot.
+
                 SetSpeedByFormationDistance(groupLeader);
             }
             return;
         }
 
-        // ── FAZA 1 ──
         if (role == AgentRole.Leader)
         {
-            // Leaderul urmareste inamicul care se plimba haotic -> viteza mare cat urmareste.
+
             bool pursuing = blackboard.combatState == CombatState.Engaging ||
                             blackboard.combatState == CombatState.Rallying ||
                             blackboard.combatState == CombatState.Combat;
@@ -297,11 +279,9 @@ public class AgentBehaviorTree : MonoBehaviour
             return;
         }
 
-        // Restul (Scout/Support) in Faza 1: catch-up fata de formatie.
         SetSpeedByFormationDistance(blackboard.GetLeader());
     }
 
-    // Seteaza viteza in functie de cat de departe e agentul de slotul lui de formatie.
     void SetSpeedByFormationDistance(AgentBehaviorTree referenceLeader)
     {
         if (referenceLeader == null) { agentController.SetSpeed(normalSpeed); return; }
@@ -330,7 +310,6 @@ public class AgentBehaviorTree : MonoBehaviour
         {
             if (group.groupID != groupID) continue;
 
-            // Cauta liderul desemnat (formationRow == 0) DACA e viu.
             foreach (AgentBehaviorTree agent in group.agents)
             {
                 if (agent == null) continue;
@@ -339,7 +318,6 @@ public class AgentBehaviorTree : MonoBehaviour
                 if (hs != null && !hs.isDead) return agent;
             }
 
-            // Liderul desemnat e mort (sau lipseste) -> promoveaza primul agent viu.
             AgentBehaviorTree newLeader = null;
             foreach (AgentBehaviorTree agent in group.agents)
             {
@@ -352,7 +330,7 @@ public class AgentBehaviorTree : MonoBehaviour
 
             if (newLeader != null)
             {
-                // Devine noul lider de grup: preia rolul de fruntas al formatiei.
+
                 newLeader.formationRow = 0;
                 newLeader.formationIndexInRow = 0;
                 newLeader.formationTotalInRow = 1;
@@ -378,7 +356,6 @@ public class AgentBehaviorTree : MonoBehaviour
         BuildBehaviorTree();
     }
 
-    // ── LEADER ─────────────────────────────────────
     void BuildLeaderTree()
     {
         behaviorTree = new BTSelector(
@@ -406,7 +383,6 @@ public class AgentBehaviorTree : MonoBehaviour
                     float dist = Vector3.Distance(
                         transform.position, blackboard.mainEnemy.position);
 
-                    // Ajuns la distanta de rally -> trecem in Rallying si asteptam echipa.
                     if (dist <= blackboard.rallyDistance)
                     {
                         blackboard.combatState = CombatState.Rallying;
@@ -419,26 +395,23 @@ public class AgentBehaviorTree : MonoBehaviour
                 })
             ),
 
-            // RALLYING: Leaderul tine pozitia la rallyDistance si asteapta formatia.
             new BTSequence(
                 new BTCondition(() => blackboard != null &&
                     blackboard.combatState == CombatState.Rallying),
                 new BTAction(() => {
                     if (blackboard.mainEnemy == null) return NodeState.Failure;
 
-                    // Destui in formatie (sau timeout) -> ATAC.
                     if (blackboard.RallyComplete())
                     {
                         blackboard.combatState = CombatState.Combat;
                         return NodeState.Running;
                     }
 
-                    // Mentine distanta de rally: nu se napusteste, asteapta.
                     float dist = Vector3.Distance(
                         transform.position, blackboard.mainEnemy.position);
                     if (dist < blackboard.rallyDistance - 1f)
                     {
-                        // prea aproape, da inapoi un pas
+
                         Vector3 away = (transform.position - blackboard.mainEnemy.position).normalized;
                         agentController.MoveTo(transform.position + away * 2f);
                     }
@@ -457,7 +430,6 @@ public class AgentBehaviorTree : MonoBehaviour
         );
     }
 
-    // ── SCOUT ───────────────────────────────────────
     void BuildScoutTree()
     {
         behaviorTree = new BTSelector(
@@ -487,7 +459,6 @@ public class AgentBehaviorTree : MonoBehaviour
         );
     }
 
-    // ── SUPPORT ─────────────────────────────────────
     void BuildSupportTree()
     {
         behaviorTree = new BTSelector(
@@ -517,7 +488,6 @@ public class AgentBehaviorTree : MonoBehaviour
         );
     }
 
-    // ── SNIPER ──────────────────────────────────────
     void BuildSniperTree()
     {
         behaviorTree = new BTSelector(
@@ -538,8 +508,6 @@ public class AgentBehaviorTree : MonoBehaviour
         );
     }
 
-    // ── ACTIUNI ─────────────────────────────────────
-
     NodeState MaintainFormation()
     {
         if (FormationManager.Instance == null) return NodeState.Failure;
@@ -558,7 +526,6 @@ public class AgentBehaviorTree : MonoBehaviour
         return NodeState.Running;
     }
 
-    // Cat de aproape e agentul de slotul lui de formatie (Faza 1). Folosit pentru rally.
     public bool IsNearFormationSlot(float tolerance)
     {
         if (FormationManager.Instance == null) return true;
@@ -584,13 +551,11 @@ public class AgentBehaviorTree : MonoBehaviour
         AgentBehaviorTree groupLeader = GetGroupLeader();
         if (groupLeader == null) return NodeState.Failure;
 
-        // Daca rolurile sunt inversate, intregul grup fuge in formatie
         if (blackboard.rolesReversed)
         {
             if (groupLeader == this)
                 return Phase2FleeAsLeader();
 
-            // Restul: mentine formatia in jurul liderului grupului care fuge
             Vector3 formationPos = FormationManager.Instance.GetFormationPosition(
                 groupLeader.transform.position,
                 groupLeader.transform.rotation,
@@ -602,7 +567,6 @@ public class AgentBehaviorTree : MonoBehaviour
             return NodeState.Running;
         }
 
-        // Comportament normal: liderul de grup urmareste inamicul, restul mentin formatia
         if (groupLeader == this)
             return Phase2FollowEnemy();
 
@@ -623,18 +587,14 @@ public class AgentBehaviorTree : MonoBehaviour
 
         if (target == null)
         {
-            // Grupul nu are nicio tinta asignata (posibil bug de reasignare, sau
-            // groupID orfan) -> vaneaza cel mai apropiat inamic viu, indiferent
-            // de asignare. Garanteaza ca lupta converge mereu.
+
             target = FindNearestLivingEnemy();
-            if (target == null) return NodeState.Failure; // niciun inamic mai e viu
+            if (target == null) return NodeState.Failure;
         }
 
-        // Destinatia depinde de tehnica de planificare.
         Vector3 dest = ComputeApproachDestination(target.position);
         agentController.MoveTo(dest);
 
-        // Roteaza liderul de grup catre tinta (ca sa intoarca formatia in directia buna)
         Vector3 dir = target.position - transform.position;
         dir.y = 0;
         if (dir.sqrMagnitude > 0.01f)
@@ -647,8 +607,6 @@ public class AgentBehaviorTree : MonoBehaviour
         return NodeState.Running;
     }
 
-    // Fallback universal: cel mai apropiat inamic viu (principal sau secundar),
-    // indiferent de sistemul de asignare grup<->inamic.
     Transform FindNearestLivingEnemy()
     {
         Transform nearest = null;
@@ -677,10 +635,6 @@ public class AgentBehaviorTree : MonoBehaviour
         return nearest;
     }
 
-    // ── PLANIFICARE: cum se apropie liderul de grup de tinta ──
-    // Reactive    = direct la tinta.
-    // Flanking    = pe un arc lateral fata de tinta (incercuire).
-    // CoverPoints = via cel mai apropiat punct de acoperire (langa obstacol).
     Vector3 ComputeApproachDestination(Vector3 targetPos)
     {
         var cfg = ExperimentConfig.Instance;
@@ -700,17 +654,14 @@ public class AgentBehaviorTree : MonoBehaviour
         }
     }
 
-    // Fiecare grup ataca dintr-un unghi diferit, distribuit pe cerc dupa groupID.
     Vector3 ComputeFlankDestination(Vector3 targetPos, float radius)
     {
         int totalGroups = (blackboard != null && blackboard.enemyGroups != null &&
                            blackboard.enemyGroups.Count > 0)
                            ? blackboard.enemyGroups.Count : 1;
 
-        // Unghi de baza per grup, distribuit uniform pe 360 grade.
         float baseAngle = (360f / Mathf.Max(1, totalGroups)) * Mathf.Max(0, groupID);
 
-        // Mic offset bazat pe directia curenta agent->tinta, ca arcul sa fie fata de pozitia reala.
         Vector3 toTarget = transform.position - targetPos;
         toTarget.y = 0;
         float startAngle = toTarget.sqrMagnitude > 0.01f
@@ -726,18 +677,16 @@ public class AgentBehaviorTree : MonoBehaviour
             UnityEngine.AI.NavMesh.AllAreas))
             return hit.position;
 
-        return targetPos; // fallback
+        return targetPos;
     }
 
-    // Se apropie via cel mai apropiat punct de acoperire (TacticalCoverPoint) fata de drum.
     Vector3 ComputeCoverDestination(Vector3 targetPos)
     {
         TacticalCoverPoint cover = TacticalCoverPoint.GetBestCover(
             transform.position, targetPos);
 
-        if (cover == null) return targetPos; // nu exista cover-uri -> reactiv
+        if (cover == null) return targetPos;
 
-        // Daca inca nu am ajuns la cover, mergem la cover; altfel, spre tinta.
         float distToCover = Vector3.Distance(transform.position, cover.transform.position);
         if (distToCover > 2.5f)
             return cover.transform.position;
@@ -745,9 +694,6 @@ public class AgentBehaviorTree : MonoBehaviour
         return targetPos;
     }
 
-    // Liderul grupului fuge haotic: alege puncte random pe harta care sunt
-    // destul de departe de inamic. Schimba destinatia cand a ajuns la ea
-    // sau dupa un timeout, pentru a parea imprevizibil.
     private Vector3 fleeWaypoint;
     private bool hasFleeWaypoint = false;
     private float fleeWaypointTimer = 0f;
@@ -766,7 +712,6 @@ public class AgentBehaviorTree : MonoBehaviour
 
         fleeWaypointTimer += Time.deltaTime;
 
-        // Stabileste daca avem nevoie de un punct nou de fuga
         bool needsNewWaypoint = false;
 
         if (!hasFleeWaypoint)
@@ -775,18 +720,17 @@ public class AgentBehaviorTree : MonoBehaviour
         }
         else if (fleeWaypointTimer >= fleeRefreshInterval)
         {
-            // A trecut suficient timp - schimba directia ca sa para haotic
+
             needsNewWaypoint = true;
         }
         else if (Vector3.Distance(transform.position, fleeWaypoint) < 1.5f)
         {
-            // A ajuns la punctul curent - alege altul
+
             needsNewWaypoint = true;
         }
         else
         {
-            // Daca punctul actual a ajuns prea aproape de inamic intre timp
-            // (inamicul s-a apropiat), il abandonam
+
             float waypointDistFromThreat = Vector3.Distance(fleeWaypoint, threat.position);
             if (waypointDistFromThreat < fleeMinDistanceFromEnemy * 0.6f)
                 needsNewWaypoint = true;
@@ -801,7 +745,7 @@ public class AgentBehaviorTree : MonoBehaviour
             }
             else
             {
-                // Fallback daca nu a gasit nimic valid - directia opusa simpla
+
                 Vector3 awayDir = (transform.position - threat.position);
                 awayDir.y = 0;
                 if (awayDir.sqrMagnitude < 0.1f)
@@ -815,7 +759,6 @@ public class AgentBehaviorTree : MonoBehaviour
 
         agentController.MoveTo(fleeWaypoint);
 
-        // Liderul de grup priveste in directia in care merge (formatia il urmeaza)
         Vector3 moveDir = fleeWaypoint - transform.position;
         moveDir.y = 0;
         if (moveDir.sqrMagnitude > 0.01f)
@@ -828,22 +771,18 @@ public class AgentBehaviorTree : MonoBehaviour
         return NodeState.Running;
     }
 
-    // Cauta un punct random pe NavMesh in jurul agentului care e suficient de departe
-    // de inamicul-amenintare. Incearca de mai multe ori cu directii random.
     bool PickRandomFleeWaypoint(Vector3 threatPosition, out Vector3 waypoint)
     {
         for (int i = 0; i < 20; i++)
         {
-            // Punct random in jurul pozitiei curente
+
             Vector2 randomCircle = Random.insideUnitCircle * fleeSearchRadius;
             Vector3 candidate = transform.position +
                 new Vector3(randomCircle.x, 0, randomCircle.y);
 
-            // Verifica distanta fata de inamic
             float distFromThreat = Vector3.Distance(candidate, threatPosition);
             if (distFromThreat < fleeMinDistanceFromEnemy) continue;
 
-            // Verifica ca punctul e pe NavMesh (deci accesibil, nu in afara hartii)
             UnityEngine.AI.NavMeshHit hit;
             if (UnityEngine.AI.NavMesh.SamplePosition(candidate, out hit, 3f,
                 UnityEngine.AI.NavMesh.AllAreas))
@@ -856,8 +795,6 @@ public class AgentBehaviorTree : MonoBehaviour
         waypoint = Vector3.zero;
         return false;
     }
-
-    // ── SNIPER ACTIONS ──────────────────────────────
 
     Vector3 GetMySniperPosition()
     {
@@ -895,8 +832,6 @@ public class AgentBehaviorTree : MonoBehaviour
 
         agentController.Stop();
 
-        // Sniperul priveste catre tinta lui privata (din CombatModule)
-        // Daca nu are inca tinta, priveste catre cel mai apropiat inamic
         Transform lookTarget = null;
         CombatModule cm = GetComponent<CombatModule>();
         if (cm != null && cm.GetSniperTarget() != null)
@@ -917,8 +852,6 @@ public class AgentBehaviorTree : MonoBehaviour
         }
         return NodeState.Running;
     }
-
-    // ── PATROL ──────────────────────────────────────
 
     NodeState Patrol()
     {

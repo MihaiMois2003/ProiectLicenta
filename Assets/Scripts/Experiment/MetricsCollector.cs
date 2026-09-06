@@ -1,22 +1,19 @@
 using UnityEngine;
 using System.Collections.Generic;
 
-// Colecteaza metrici pentru experimente. Toate sunt afisate live de ExperimentUI.
-// Cronometrul porneste la primul contact (combatState devine Engaging) si se
-// opreste cand toti inamicii sunt morti.
 public class MetricsCollector : MonoBehaviour
 {
     public static MetricsCollector Instance;
 
     [Header("Timing (readonly)")]
     public bool timerRunning = false;
-    public float elapsedTime = 0f;          // timp de la primul contact
-    public float timeFirstContact = -1f;    // momentul (Time.time) primului Engaging
-    public float timeSceneStart = -1f;      // momentul (Time.time) pornirii masuratorii
-    public float detectionTime = -1f;       // timeFirstContact - timeSceneStart (cat dureaza sa fie gasit)
-    public float timeFirstCombat = -1f;     // momentul primului Combat (primul agent in lupta)
-    public float reactionTime = -1f;        // timeFirstCombat - timeFirstContact
-    public float timeAllEnemiesDead = -1f;  // elapsedTime cand a murit ultimul inamic
+    public float elapsedTime = 0f;
+    public float timeFirstContact = -1f;
+    public float timeSceneStart = -1f;
+    public float detectionTime = -1f;
+    public float timeFirstCombat = -1f;
+    public float reactionTime = -1f;
+    public float timeAllEnemiesDead = -1f;
 
     [Header("Knowledge spread (readonly)")]
     [Tooltip("Cati agenti 'stiu' de inamic acum (relevant la LocalBroadcast).")]
@@ -25,7 +22,6 @@ public class MetricsCollector : MonoBehaviour
     [Tooltip("Timpul (de la primul contact) cand TOTI agentii au aflat. -1 daca nu s-a intamplat.")]
     public float timeFullAwareness = -1f;
 
-    // Cine a castigat runda curenta.
     public enum RunOutcome { None, AgentsWon, EnemiesWon }
 
     [Header("Outcome (readonly)")]
@@ -65,17 +61,16 @@ public class MetricsCollector : MonoBehaviour
         else { Destroy(this); return; }
     }
 
-    // Apelat din HealthSystem.TakeDamage. targetIsAlly = tinta lovita e agent.
     public static void ReportDamage(float raw, float effective, float overkill, bool targetIsAlly)
     {
         if (Instance == null) return;
-        if (!Instance.timerRunning) return; // numara doar in timpul rularii
+        if (!Instance.timerRunning) return;
 
         Instance.overkillDamage += overkill;
         if (targetIsAlly)
-            Instance.damageToAgents += effective;   // inamicul a lovit un agent
+            Instance.damageToAgents += effective;
         else
-            Instance.damageToEnemies += effective;  // un agent a lovit inamicul
+            Instance.damageToEnemies += effective;
     }
 
     void Start()
@@ -113,10 +108,8 @@ public class MetricsCollector : MonoBehaviour
         if (bb == null) { bb = TacticalBlackboard.Instance; if (bb == null) return; }
         if (!bb.simulationStarted) return;
 
-        // Marcheaza momentul real de start (prima data cand simularea ruleaza).
         if (timeSceneStart < 0f) timeSceneStart = Time.time;
 
-        // Start cronometru la primul contact
         if (!firstContactSeen &&
             (bb.combatState == CombatState.Engaging ||
              bb.combatState == CombatState.Rallying ||
@@ -132,7 +125,6 @@ public class MetricsCollector : MonoBehaviour
         if (timerRunning && !finished)
             elapsedTime += Time.deltaTime;
 
-        // Primul moment de Combat = reactie completa
         if (firstContactSeen && !firstCombatSeen &&
             (bb.combatState == CombatState.Combat || bb.phase2Active))
         {
@@ -143,12 +135,10 @@ public class MetricsCollector : MonoBehaviour
 
         RecomputeCounts();
 
-        // Knowledge spread
         if (firstContactSeen && timeFullAwareness < 0f &&
             agentsAware >= totalAgents && totalAgents > 0)
             timeFullAwareness = elapsedTime;
 
-        // Conditie de final: cronometrul a pornit si o parte a fost eliminata complet.
         if (firstContactSeen && !finished)
         {
             if (enemiesAlive == 0)
@@ -163,13 +153,11 @@ public class MetricsCollector : MonoBehaviour
                 finished = true;
                 timerRunning = false;
                 outcome = RunOutcome.EnemiesWon;
-                timeAllEnemiesDead = elapsedTime; // momentul terminarii rundei (indiferent de rezultat)
+                timeAllEnemiesDead = elapsedTime;
             }
             else if (elapsedTime >= maxRunDuration)
             {
-                // Watchdog: runda a durat prea mult (posibil blocaj rar de coordonare).
-                // Se forteaza un final curat, decis dupa cine avea mai mult HP total ramas,
-                // ca sa nu ramana niciodata o masuratoare agatata la infinit.
+
                 finished = true;
                 timerRunning = false;
                 timedOut = true;
@@ -201,7 +189,6 @@ public class MetricsCollector : MonoBehaviour
                 agentsAlive++;
                 totalAgentHP += hs.currentHP;
 
-                // Acumuleaza distanta parcursa (doar cat ruleaza cronometrul).
                 if (timerRunning)
                 {
                     Vector3 cur = a.transform.position;
@@ -212,7 +199,6 @@ public class MetricsCollector : MonoBehaviour
             }
         }
 
-        // Inamici
         enemiesAlive = 0;
         totalEnemyHP = 0f;
         foreach (Transform e in CollectEnemies())

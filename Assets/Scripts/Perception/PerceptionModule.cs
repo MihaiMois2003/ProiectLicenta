@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using System.Collections.Generic;
 
 public class PerceptionModule : MonoBehaviour
@@ -17,7 +17,6 @@ public class PerceptionModule : MonoBehaviour
     public List<Transform> visibleEnemies = new List<Transform>();
     public List<Transform> visibleAllies = new List<Transform>();
 
-    // ── Memorie (folosit la PerceptionMode.FOV_Memory) ──
     private Transform rememberedEnemy = null;
     private Vector3 rememberedPosition;
     private float rememberedUntil = -1f;
@@ -44,13 +43,12 @@ public class PerceptionModule : MonoBehaviour
 
         if (mode == PerceptionMode.Omniscient)
         {
-            // Vede toti inamicii vii din scena, fara raza / unghi / LOS.
+
             CollectAllLiveEnemies(visibleEnemies);
             CollectAllInLayer(allyLayer, visibleAllies, ignoreSelf: true);
             return;
         }
 
-        // Celelalte moduri pornesc de la inamicii in raza.
         Collider[] enemiesInRadius = Physics.OverlapSphere(
             transform.position, viewRadius, enemyLayer);
 
@@ -73,13 +71,12 @@ public class PerceptionModule : MonoBehaviour
         }
     }
 
-    // Aplica filtrele de unghi / LOS in functie de modul de perceptie.
     bool PassesPerceptionFilters(Transform target, PerceptionMode mode)
     {
         switch (mode)
         {
             case PerceptionMode.RadiusOnly:
-                // 360 grade: doar LOS conteaza, fara unghi.
+
                 return HasLineOfSight(target);
 
             case PerceptionMode.FOV_LOS:
@@ -89,7 +86,6 @@ public class PerceptionModule : MonoBehaviour
         }
     }
 
-    // Tine minte ultima pozitie a inamicului cel mai apropiat (doar FOV_Memory).
     void UpdateMemory()
     {
         if (Mode() != PerceptionMode.FOV_Memory) { rememberedUntil = -1f; return; }
@@ -106,7 +102,6 @@ public class PerceptionModule : MonoBehaviour
         }
     }
 
-    // Inamicul "stiut": vizibil acum, SAU memorat recent (FOV_Memory).
     public bool HasRememberedEnemy()
     {
         if (visibleEnemies.Count > 0) return true;
@@ -123,14 +118,14 @@ public class PerceptionModule : MonoBehaviour
 
     void CollectAllLiveEnemies(List<Transform> into)
     {
-        // Mainul
+
         var bb = TacticalBlackboard.Instance;
         if (bb != null && bb.mainEnemy != null)
         {
             HealthSystem hs = bb.mainEnemy.GetComponent<HealthSystem>();
             if (hs == null || !hs.isDead) into.Add(bb.mainEnemy);
         }
-        // Secundarii
+
         SecondaryEnemyController[] secs =
             Object.FindObjectsByType<SecondaryEnemyController>(FindObjectsSortMode.None);
         foreach (var s in secs)
@@ -183,7 +178,6 @@ public class PerceptionModule : MonoBehaviour
     public bool CanSeeEnemies() => visibleEnemies.Count > 0;
     public bool CanSeeAllies() => visibleAllies.Count > 0;
 
-    // Cel mai apropiat inamic vizibil acum (fara memorie).
     Transform GetNearestEnemyRaw()
     {
         if (visibleEnemies.Count == 0) return null;

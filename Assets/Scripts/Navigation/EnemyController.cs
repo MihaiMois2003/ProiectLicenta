@@ -41,7 +41,6 @@ public class EnemyController : MonoBehaviour
         if (blackboard != null)
             blackboard.mainEnemy = transform;
 
-        // Nu setam destinatie aici - Update() porneste plimbarea dupa START.
     }
 
     private bool wanderInitialized = false;
@@ -50,7 +49,7 @@ public class EnemyController : MonoBehaviour
     {
         if (!TacticalBlackboard.IsRunning())
         {
-            // Inghetat: tine inamicul pe loc complet.
+
             if (navAgent != null && navAgent.isOnNavMesh)
             {
                 navAgent.isStopped = true;
@@ -59,7 +58,6 @@ public class EnemyController : MonoBehaviour
             return;
         }
 
-        // Prima rulare dupa START: porneste plimbarea.
         if (!wanderInitialized)
         {
             wanderInitialized = true;
@@ -70,7 +68,6 @@ public class EnemyController : MonoBehaviour
 
         if (blackboard == null) return;
 
-        // Verifica eliberarea inamicilor secundari (HP < 75%)
         if (blackboard.combatState == CombatState.Engaging ||
             blackboard.combatState == CombatState.Rallying ||
             blackboard.combatState == CombatState.Combat ||
@@ -79,35 +76,29 @@ public class EnemyController : MonoBehaviour
             CheckLiberation();
         }
 
-        // Comportament:
-        // - Faza 2 cu reversal: URMARESC grupul asignat
-        // - Faza 2 normala: se plimba haotic (lasa CombatModule sa traga)
-        // - Combat (Faza 1): sta pe loc (echipa l-a incercuit, lupta)
-        // - Idle/Engaging/Rallying: se plimba HAOTIC prin toata harta
-
         if (blackboard.phase2Active && blackboard.rolesReversed)
         {
             ChaseAssignedGroup();
         }
         else if (blackboard.phase2Active)
         {
-            // Faza 2 normala: fuga haotica (departe de grupuri) in timp ce trage
+
             Wander(true);
         }
         else if (blackboard.combatState == CombatState.Combat)
         {
-            // Combat Faza 1: echipa adunata, inamicul se opreste si lupta
+
             StopMoving();
         }
         else if (blackboard.combatState == CombatState.Engaging ||
                  blackboard.combatState == CombatState.Rallying)
         {
-            // Depistat: fuga HAOTICA (tinde departe de agenti, dar cu zigzag)
+
             Wander(true);
         }
         else
         {
-            // Idle (nedepistat): plimbare haotica pura prin toata harta
+
             Wander(false);
         }
     }
@@ -118,8 +109,6 @@ public class EnemyController : MonoBehaviour
             navAgent.ResetPath();
     }
 
-    // Miscare haotica. alert=false => wander pur. alert=true => fuga haotica:
-    // alege puncte care tind sa fie departe de centrul agentilor, dar cu zigzag.
     void Wander(bool alert)
     {
         if (!navAgent.isOnNavMesh) return;
@@ -141,7 +130,6 @@ public class EnemyController : MonoBehaviour
         }
     }
 
-    // Centrul agentilor vii (pentru a sti de cine sa fuga).
     Vector3 GetAgentsCenter()
     {
         if (blackboard == null) return transform.position;
@@ -158,18 +146,12 @@ public class EnemyController : MonoBehaviour
         return count > 0 ? sum / count : transform.position;
     }
 
-    // Fuga haotica: directia de baza = departe de centrul agentilor,
-    // dar cu jitter unghiular mare (zigzag) si pas variabil. Ramane pe harta.
     void SetFleeWanderTarget()
     {
         Vector3 center = GetAgentsCenter();
 
-        // Scaneaza directii pe un cerc COMPLET. Pentru fiecare punct valid pe harta,
-        // calculeaza un scor (cat de departe ajunge de agenti). Alege cel mai bun.
-        // Astfel, daca e incoltit, accepta sa treaca pe langa agenti ca sa scape,
-        // dar prefera mereu directia care-l duce cel mai departe de ei.
         int dirCount = 16;
-        float angleOffset = Random.Range(0f, 360f); // rotim startul = haotic intre apeluri
+        float angleOffset = Random.Range(0f, 360f);
 
         Vector3 bestPoint = Vector3.zero;
         float bestScore = float.NegativeInfinity;
@@ -189,8 +171,6 @@ public class EnemyController : MonoBehaviour
             if (!NavMesh.SamplePosition(candidate, out hit, 3f, NavMesh.AllAreas))
                 continue;
 
-            // Scor = distanta punctului fata de agenti (mai mare = mai bine)
-            // + un bonus mic random ca sa nu fie mereu identic (haotic).
             float distFromAgents = Vector3.Distance(hit.position, center);
             float score = distFromAgents + Random.Range(0f, 4f);
 
@@ -208,13 +188,12 @@ public class EnemyController : MonoBehaviour
             return;
         }
 
-        // Daca NICIO directie nu a mers (foarte rar) -> wander pur garantat.
         SetWanderTarget();
     }
 
     void SetWanderTarget()
     {
-        // Incearca pana gaseste un punct valid pe NavMesh, oriunde pe harta.
+
         for (int i = 0; i < 20; i++)
         {
             Vector3 p = new Vector3(
@@ -229,7 +208,7 @@ public class EnemyController : MonoBehaviour
                 return;
             }
         }
-        // ANTI-BLOCAJ: daca nimic, sample langa pozitia curenta.
+
         NavMeshHit fb;
         if (NavMesh.SamplePosition(transform.position + Random.insideUnitSphere * 6f,
             out fb, 8f, NavMesh.AllAreas))
@@ -268,7 +247,6 @@ public class EnemyController : MonoBehaviour
         Debug.Log("[Enemy] Inamici secundari spawned (HP din propriul prefab).");
     }
 
-    // In reversal: urmareste grupul de agenti asignat
     void ChaseAssignedGroup()
     {
         navAgent.speed = chaseSpeed;
@@ -297,14 +275,9 @@ public class EnemyController : MonoBehaviour
             return;
         }
 
-        // Grupul asignat e gol sau mort -> vaneaza cel mai apropiat agent viu,
-        // indiferent de grup sau rol. Garanteaza ca lupta converge mereu.
         ChaseNearestLivingAgent();
     }
 
-    // Fallback universal: gaseste orice agent viu (nu doar sniper) si il urmareste.
-    // Daca nu mai e niciun agent viu, lupta s-a incheiat deja (agentsAlive == 0),
-    // deci oprirea aici e sigura.
     void ChaseNearestLivingAgent()
     {
         Transform nearest = null;

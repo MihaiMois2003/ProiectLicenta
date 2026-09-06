@@ -1,15 +1,5 @@
 using UnityEngine;
 
-// Rezerva o banda pe stanga ecranului pentru panoul de control (OnGUI) si
-// restrange camera principala sa randeze doar in spatiul ramas, in dreapta.
-// Astfel scena apare centrata fata de zona libera, nu fata de tot ecranul,
-// iar zona din stanga (sub panou) e curatata separat, fara resturi vizuale.
-//
-// SETUP:
-//  - Pune acest script pe Main Camera.
-//  - In acelasi GameObject sau in scena, ExperimentUI trebuie sa existe
-//    (citeste ExperimentUI.ReservedPixelWidth, sincronizat automat).
-//  - Scriptul creeaza singur camera de fundal daca nu exista deja.
 [RequireComponent(typeof(Camera))]
 public class SceneCameraLayout : MonoBehaviour
 {
@@ -30,8 +20,8 @@ public class SceneCameraLayout : MonoBehaviour
     private float lastAppliedZoom = -1f;
 
     private bool isOrtho;
-    private float baseFOV;        // field of view initial (camera perspectiva)
-    private float baseOrthoSize;  // orthographic size initial (camera ortografica)
+    private float baseFOV;
+    private float baseOrthoSize;
 
     void Awake()
     {
@@ -57,7 +47,6 @@ public class SceneCameraLayout : MonoBehaviour
             ApplyZoom();
     }
 
-    // Apelat din UI (slider). Umbla STRICT pe camera, panoul nu e afectat niciodata.
     public void SetZoom(float zoom)
     {
         sceneZoom = Mathf.Clamp(zoom, 0.4f, 3f);
@@ -69,12 +58,12 @@ public class SceneCameraLayout : MonoBehaviour
         lastAppliedZoom = sceneZoom;
         if (isOrtho)
         {
-            // Zoom mai mare => vedem mai putin din scena => orthographicSize mai mic.
+
             mainCam.orthographicSize = baseOrthoSize / sceneZoom;
         }
         else
         {
-            // Zoom mai mare => camp de vedere mai ingust => obiectele par mai mari.
+
             mainCam.fieldOfView = Mathf.Clamp(baseFOV / sceneZoom, 1f, 170f);
         }
     }
@@ -89,8 +78,8 @@ public class SceneCameraLayout : MonoBehaviour
 
         bgCam.clearFlags = CameraClearFlags.SolidColor;
         bgCam.backgroundColor = backgroundColor;
-        bgCam.cullingMask = 0;              // nu randeaza niciun obiect, doar curata
-        bgCam.depth = mainCam.depth - 10;   // randeaza inaintea camerei principale
+        bgCam.cullingMask = 0;
+        bgCam.depth = mainCam.depth - 10;
         bgCam.orthographic = true;
         bgCam.orthographicSize = 1f;
         bgCam.nearClipPlane = 0.01f;
@@ -108,12 +97,8 @@ public class SceneCameraLayout : MonoBehaviour
 
         float reservedFrac = Mathf.Clamp01((float)lastReserved / Mathf.Max(1, lastScreenW));
 
-        // Camera principala: randeaza doar in dreapta panoului.
         mainCam.rect = new Rect(reservedFrac, 0f, 1f - reservedFrac, 1f);
 
-        // Camera de fundal: acopera tot ecranul, dar cum are cullingMask 0 si
-        // deseneaza inaintea camerei principale, doar banda din stanga ramane
-        // vizibila din ea (restul e suprascris de camera principala).
         if (bgCam != null)
             bgCam.rect = new Rect(0f, 0f, 1f, 1f);
     }

@@ -1,9 +1,6 @@
 using UnityEngine;
 using UnityEngine.AI;
 
-// Genereaza automat puncte de acoperire in jurul obstacolelor la Start.
-// Pune-l pe un GameObject gol in scena. Pentru fiecare obstacol din
-// ObstacleManager, creeaza cateva cover points pe NavMesh in jurul lui.
 public class CoverPointSpawner : MonoBehaviour
 {
     [Tooltip("Cate cover points pe obstacol (distribuite pe cerc in jurul lui).")]

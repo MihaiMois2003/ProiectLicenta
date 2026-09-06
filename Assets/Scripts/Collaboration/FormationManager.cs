@@ -13,14 +13,10 @@ public class FormationManager : MonoBehaviour
         else Destroy(gameObject);
     }
 
-    // Formatie triunghiulara:
-    // Varf: Leader
-    // Randul 2: Scout 0, Scout 1, Scout 2
-    // Randul 3: Support 0, Support 1, Support 2, Support 3, Support 4
     public Vector3 GetFormationPosition(Vector3 leaderPosition,
         Quaternion leaderRotation, int row, int indexInRow, int totalInRow)
     {
-        // Centram randul
+
         float totalWidth = (totalInRow - 1) * spacing;
         float startX = -totalWidth / 2f;
         float xOffset = startX + indexInRow * spacing;

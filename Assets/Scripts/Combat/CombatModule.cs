@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 public class CombatModule : MonoBehaviour
 {
@@ -12,9 +12,8 @@ public class CombatModule : MonoBehaviour
 
     private HealthSystem healthSystem;
     private PerceptionModule perception;
-    private AgentBehaviorTree behaviorTree; // pentru a sti currentCombatTarget
+    private AgentBehaviorTree behaviorTree;
 
-    // Folosit DOAR pentru sniperi: tinta proprie, persistenta pana moare
     private Transform sniperPrivateTarget = null;
 
     void Awake()
@@ -29,7 +28,6 @@ public class CombatModule : MonoBehaviour
         if (!TacticalBlackboard.IsRunning()) return;
         if (healthSystem.isDead) return;
 
-        // Tragerea porneste doar in Combat (sau in Faza 2, care implicit e combat)
         TacticalBlackboard bb = TacticalBlackboard.Instance;
         if (bb == null) return;
 
@@ -46,8 +44,6 @@ public class CombatModule : MonoBehaviour
         Transform target = GetBestTarget();
         if (target == null) return;
 
-        // Verifica raza de tragere
-        // Sniperul nu are limita de raza; ceilalti folosesc attackRange
         if (!isSniper)
         {
             float dist = Vector3.Distance(transform.position, target.position);
@@ -57,25 +53,23 @@ public class CombatModule : MonoBehaviour
         Attack(target);
     }
 
-    // Decide pe cine atacam
     Transform GetBestTarget()
     {
         if (isEnemy)
         {
-            // Inamicii ataca cel mai apropiat agent viu
+
             return GetNearestAliveAlly();
         }
 
         if (isSniper)
         {
-            // Sniper: tine o tinta privata pana moare. Daca moare, alege alta.
+
             if (!IsTargetAlive(sniperPrivateTarget))
                 sniperPrivateTarget = PickSniperTarget();
 
             return sniperPrivateTarget;
         }
 
-        // Agent normal: ataca tinta setata de behavior tree (currentCombatTarget)
         if (behaviorTree == null) return null;
 
         Transform combatTarget = behaviorTree.currentCombatTarget;
@@ -84,14 +78,12 @@ public class CombatModule : MonoBehaviour
         return combatTarget;
     }
 
-    // Sniper alege o tinta noua. Prefera o tinta pe care alt sniper nu o are deja.
     Transform PickSniperTarget()
     {
-        // Colecteaza inamicii vii cu line-of-sight
+
         int enemyLayer = LayerMask.GetMask("Enemy", "SecondaryEnemy");
         Collider[] colliders = Physics.OverlapSphere(transform.position, 200f, enemyLayer);
 
-        // Vezi ce tinte au ceilalti sniperi
         TacticalBlackboard bb = TacticalBlackboard.Instance;
         System.Collections.Generic.HashSet<Transform> takenByOtherSnipers =
             new System.Collections.Generic.HashSet<Transform>();
@@ -124,7 +116,7 @@ public class CombatModule : MonoBehaviour
 
             if (takenByOtherSnipers.Contains(col.transform))
             {
-                // E luata de alt sniper -> doar fallback
+
                 if (dist < minDistFallback)
                 {
                     minDistFallback = dist;
@@ -133,7 +125,7 @@ public class CombatModule : MonoBehaviour
             }
             else
             {
-                // Tinta libera -> preferata
+
                 if (dist < minDistPreferred)
                 {
                     minDistPreferred = dist;
@@ -145,7 +137,6 @@ public class CombatModule : MonoBehaviour
         return preferred != null ? preferred : fallback;
     }
 
-    // Helper public folosit de AgentBehaviorTree pentru sniperi (rotatia capului)
     public Transform GetSniperTarget()
     {
         return sniperPrivateTarget;
@@ -199,7 +190,6 @@ public class CombatModule : MonoBehaviour
         HealthSystem targetHS = target.GetComponent<HealthSystem>();
         if (targetHS == null) return;
 
-        // Decizia de tragere a sniperului depinde de DecisionMode.
         if (isSniper)
         {
             if (!SniperDecidesToFire(target, targetHS))
@@ -217,10 +207,6 @@ public class CombatModule : MonoBehaviour
             $"HP ramas: {targetHS.currentHP}/{targetHS.maxHP}");
     }
 
-    // ── DECIZIA DE TRAGERE A SNIPERULUI ──
-    // FixedChance = zar cu sniperHitChance (original).
-    // Heuristic   = trage doar daca LOS clar + tinta slabita + niciun aliat in pericol.
-    // ML_PPO      = decizie luata de un model ML (slot; pana e antrenat, foloseste euristica).
     bool SniperDecidesToFire(Transform target, HealthSystem targetHS)
     {
         var cfg = ExperimentConfig.Instance;
@@ -236,7 +222,7 @@ public class CombatModule : MonoBehaviour
 
             case DecisionMode.FixedChance:
             default:
-                // Zar simplu.
+
                 return Random.Range(0f, 1f) <= sniperHitChance;
         }
     }
@@ -249,21 +235,17 @@ public class CombatModule : MonoBehaviour
 
     bool HeuristicFireDecision(Transform target, HealthSystem targetHS)
     {
-        // 1. LOS clar (re-verificat; PickSniperTarget deja filtreaza, dar fii sigur).
+
         if (!HasLineOfSight(target)) return false;
 
-        // 2. Nu irosi pe tinte la full HP daca pragul cere o tinta slabita.
-        //    (interpretare: tragem cand tinta e sub prag SAU mereu daca prag = 1)
         float hpPct = targetHS.GetHPPercentage();
         if (hpPct > heuristicTargetHPThreshold) return false;
 
-        // 3. Niciun aliat in pericol langa tinta (sa nu lovim prin propriul aliat).
         if (AllyNearTarget(target)) return false;
 
         return true;
     }
 
-    // Exista un aliat (layer Ally) prea aproape de tinta (risc de friendly fire vizual)?
     bool AllyNearTarget(Transform target)
     {
         int allyLayer = LayerMask.GetMask("Ally");
@@ -277,15 +259,12 @@ public class CombatModule : MonoBehaviour
         return false;
     }
 
-    // Slot ML: pana antrenam modelul ONNX, foloseste aceeasi euristica.
-    // Cand vei avea SniperMLAgent, inlocuiesti corpul cu apelul la model.
     bool MLFireDecision(Transform target, HealthSystem targetHS)
     {
         SniperMLAgent ml = GetComponent<SniperMLAgent>();
         if (ml != null)
             return ml.DecideFire(target, targetHS, this);
 
-        // Fallback pana exista agentul ML: euristica.
         return HeuristicFireDecision(target, targetHS);
     }
 }

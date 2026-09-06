@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using System.Collections.Generic;
 
 public enum CombatState
@@ -15,7 +15,6 @@ public class EnemyGroup
     public int groupID;
     public List<AgentBehaviorTree> agents = new List<AgentBehaviorTree>();
 
-    // Inamicul fix asignat acestui grup la activarea Fazei 2.
     public Transform assignedEnemy;
 }
 
@@ -30,7 +29,6 @@ public class TacticalBlackboard : MonoBehaviour
     [Tooltip("Cat e false, simularea e inghetata (asteapta butonul START din GUI).")]
     public bool simulationStarted = false;
 
-    // Helper static rapid pentru toate scripturile.
     public static bool IsRunning()
     {
         return Instance != null && Instance.simulationStarted;
@@ -98,7 +96,6 @@ public class TacticalBlackboard : MonoBehaviour
         if (enemySpotted && Time.time - timeEnemyWasSpotted > 10f)
             ClearEnemyInfo();
 
-        // Propagare Relay: cine stie retransmite vecinilor la intervale (valuri).
         ExperimentConfig cfg = ExperimentConfig.Instance;
         if (cfg != null && cfg.communicationMode == CommunicationMode.Relay && enemySpotted)
         {
@@ -110,12 +107,10 @@ public class TacticalBlackboard : MonoBehaviour
             }
         }
 
-        // In Faza 2, daca tinta unui grup a murit, reasigneaza alta tinta vie
         if (phase2Active)
         {
             ReassignDeadEnemyTargets();
 
-            // Verifica reversalul la fiecare reversalCheckInterval secunde
             reversalTimer += Time.deltaTime;
             if (reversalTimer >= reversalCheckInterval)
             {
@@ -125,12 +120,9 @@ public class TacticalBlackboard : MonoBehaviour
         }
     }
 
-    // Un val de propagare: fiecare agent care STIE anunta vecinii din commRange
-    // care INCA nu stiu. Apelat periodic => informatia se raspandeste din aproape
-    // in aproape, nu instant.
     void PropagateRelay(float range)
     {
-        // Colecteaza cine stie acum (snapshot, ca sa nu propagam in cascada intr-un singur tick).
+
         List<AgentBehaviorTree> knowers = new List<AgentBehaviorTree>();
         foreach (AgentBehaviorTree a in allAgents)
             if (a != null && a.knowsEnemy) knowers.Add(a);
@@ -176,22 +168,19 @@ public class TacticalBlackboard : MonoBehaviour
         if (combatState == CombatState.Idle)
             combatState = CombatState.Engaging;
 
-        // Propaga raportul in functie de modul de comunicare.
         ExperimentConfig cfg = ExperimentConfig.Instance;
         CommunicationMode mode = cfg != null ? cfg.communicationMode
                                              : CommunicationMode.Blackboard;
 
         if (mode == CommunicationMode.Blackboard)
         {
-            // Cunoastere globala: toti agentii afla instant.
+
             foreach (AgentBehaviorTree a in allAgents)
                 if (a != null) a.ReceiveEnemyReport(position);
         }
         else
         {
-            // LocalBroadcast SI Relay: raportorul anunta vecinii din commRange.
-            // Diferenta: la Relay, vecinii care au aflat vor propaga MAI DEPARTE
-            //            in PropagateRelay() (apelat din Update), in valuri.
+
             AgentBehaviorTree reporter = GetAgentByID(agentID);
             if (reporter != null)
             {
@@ -212,7 +201,7 @@ public class TacticalBlackboard : MonoBehaviour
         enemySpotted = false;
         foreach (AgentBehaviorTree a in allAgents)
             if (a != null) a.ClearEnemyKnowledge();
-        // Nu resetam combatState daca suntem deja in Combat sau Faza 2
+
         if ((combatState == CombatState.Engaging || combatState == CombatState.Rallying)
             && !phase2Active)
             combatState = CombatState.Idle;
@@ -225,7 +214,6 @@ public class TacticalBlackboard : MonoBehaviour
         return null;
     }
 
-    // Fractia de agenti non-sniper, non-leader, vii, care sunt aproape de pozitia lor de formatie.
     public float FormationReadyFraction()
     {
         int total = 0, ready = 0;
@@ -239,11 +227,10 @@ public class TacticalBlackboard : MonoBehaviour
             total++;
             if (a.IsNearFormationSlot(formationTolerance)) ready++;
         }
-        if (total == 0) return 1f; // nimeni de asteptat
+        if (total == 0) return 1f;
         return (float)ready / total;
     }
 
-    // Trebuie sa pornim atacul? (destui in formatie SAU timeout)
     public bool RallyComplete()
     {
         if (FormationReadyFraction() >= rallyReadyFraction) return true;
@@ -276,10 +263,8 @@ public class TacticalBlackboard : MonoBehaviour
         if (phase2Active) return;
         phase2Active = true;
 
-        // Cand intram in Faza 2, fortam combatState = Combat ca sa traga toata lumea
         combatState = CombatState.Combat;
 
-        // 1. Colecteaza agentii non-sniper vii
         List<AgentBehaviorTree> availableAgents = new List<AgentBehaviorTree>();
         foreach (AgentBehaviorTree agent in allAgents)
         {
@@ -289,7 +274,6 @@ public class TacticalBlackboard : MonoBehaviour
             availableAgents.Add(agent);
         }
 
-        // 2. Amesteca aleatoriu (Fisher-Yates)
         for (int i = 0; i < availableAgents.Count; i++)
         {
             int rand = Random.Range(i, availableAgents.Count);
@@ -298,10 +282,8 @@ public class TacticalBlackboard : MonoBehaviour
             availableAgents[rand] = temp;
         }
 
-        // 3. Colecteaza inamicii vii
         List<Transform> liveEnemies = CollectLiveEnemies();
 
-        // 4. Imparte agentii in grupuri de cate 3
         enemyGroups.Clear();
         int groupIndex = 0;
         for (int i = 0; i < availableAgents.Count; i += 3)
@@ -334,7 +316,6 @@ public class TacticalBlackboard : MonoBehaviour
                 group.agents.Add(availableAgents[j]);
             }
 
-            // 5. Asigneaza un inamic in functie de modul de colaborare
             AssignTargetToGroup(group, liveEnemies);
 
             enemyGroups.Add(group);
@@ -375,10 +356,6 @@ public class TacticalBlackboard : MonoBehaviour
         return result;
     }
 
-    // Asigneaza un inamic unui grup, in functie de CollaborationMode.
-    // RandomRoundRobin = ordine ciclica (comportamentul original).
-    // NearestEnemy     = inamicul cel mai apropiat de centrul grupului.
-    // FocusFire        = acelasi inamic pentru toate grupurile (primul viu).
     void AssignTargetToGroup(EnemyGroup group, List<Transform> liveEnemies)
     {
         if (liveEnemies == null || liveEnemies.Count == 0)
@@ -394,7 +371,7 @@ public class TacticalBlackboard : MonoBehaviour
         switch (mode)
         {
             case CollaborationMode.FocusFire:
-                // Toate grupurile concentreaza focul pe primul inamic viu.
+
                 group.assignedEnemy = liveEnemies[0];
                 break;
 
@@ -413,32 +390,26 @@ public class TacticalBlackboard : MonoBehaviour
                 }
 
             case CollaborationMode.Auction:
-                // Auction necesita vedere globala -> asigneaza toate grupurile odata.
+
                 AssignByAuction(liveEnemies);
                 break;
 
             case CollaborationMode.RandomRoundRobin:
             default:
-                // groupID e setat inainte de apel; ciclam peste inamicii vii.
+
                 group.assignedEnemy = liveEnemies[group.groupID % liveEnemies.Count];
                 break;
         }
     }
 
-    // ── AUCTION (licitatie) ─────────────────────────
-    // Fiecare grup liciteaza pe fiecare inamic (bid = 1/distanta). Asignam iterativ
-    // perechea cu cel mai mare bid, apoi penalizam inamicul deja luat ca sa
-    // distribuim grupurile (evitam sa se inghesuie toate pe acelasi inamic).
     void AssignByAuction(List<Transform> liveEnemies)
     {
         if (enemyGroups.Count == 0 || liveEnemies.Count == 0) return;
 
-        // Cate grupuri are voie un inamic, ca sa fie echilibrat.
         int cap = Mathf.CeilToInt((float)enemyGroups.Count / liveEnemies.Count);
         Dictionary<Transform, int> load = new Dictionary<Transform, int>();
         foreach (Transform e in liveEnemies) load[e] = 0;
 
-        // Construieste lista de licitatii (grup, inamic, bid).
         foreach (EnemyGroup g in enemyGroups)
         {
             Vector3 center = GetGroupCenter(g);
@@ -450,7 +421,6 @@ public class TacticalBlackboard : MonoBehaviour
                 float dist = Vector3.Distance(center, e.position);
                 float bid = 1f / Mathf.Max(0.1f, dist);
 
-                // Penalizeaza inamicii deja incarcati la capacitate.
                 if (load[e] >= cap) bid *= 0.25f;
 
                 if (bid > bestBid) { bestBid = bid; best = e; }
@@ -460,7 +430,6 @@ public class TacticalBlackboard : MonoBehaviour
             if (best != null) load[best]++;
         }
     }
-
 
     void ReassignDeadEnemyTargets()
     {
@@ -498,15 +467,13 @@ public class TacticalBlackboard : MonoBehaviour
         }
     }
 
-    // ── REVERSAL LOGIC ─────────────────────────────
-
     void CheckRolesReversal()
     {
         float totalAgentHP = 0f;
         foreach (AgentBehaviorTree a in allAgents)
         {
             if (a == null) continue;
-            // Sniperii NU intra in calcul (sunt mereu protejati la pozitia lor)
+
             if (a.role == AgentRole.Sniper) continue;
 
             HealthSystem hs = a.GetComponent<HealthSystem>();
@@ -538,7 +505,6 @@ public class TacticalBlackboard : MonoBehaviour
         }
     }
 
-    // Helper: ce grup de agenti are asignat un anumit inamic
     public EnemyGroup GetGroupAssignedToEnemy(Transform enemy)
     {
         foreach (EnemyGroup g in enemyGroups)

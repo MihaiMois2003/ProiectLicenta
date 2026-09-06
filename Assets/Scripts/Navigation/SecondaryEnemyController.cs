@@ -35,7 +35,6 @@ public class SecondaryEnemyController : MonoBehaviour
         if (!TacticalBlackboard.IsRunning()) return;
         if (!isLiberated) return;
 
-        // Fallback daca Start() nu a apucat sa ruleze
         if (blackboard == null)
         {
             blackboard = TacticalBlackboard.Instance;
@@ -48,7 +47,7 @@ public class SecondaryEnemyController : MonoBehaviour
         }
         else
         {
-            // Faza 2 normala: se plimba haotic prin toata harta (trage din mers)
+
             Wander();
         }
     }
@@ -59,12 +58,9 @@ public class SecondaryEnemyController : MonoBehaviour
         navAgent.enabled = true;
         navAgent.speed = wanderSpeed;
 
-        // Fallback: daca Start() inca nu a rulat, ia referinta direct
         if (blackboard == null)
             blackboard = TacticalBlackboard.Instance;
 
-        // Nu setam o destinatie aici - Update() va apela Wander()
-        // dupa ce ActivatePhase2() creeaza grupurile.
     }
 
     void StopMoving()
@@ -73,7 +69,6 @@ public class SecondaryEnemyController : MonoBehaviour
             navAgent.ResetPath();
     }
 
-    // Faza 2 normala: fuga HAOTICA de grupul de agenti asignat. Nu se blocheaza.
     void Wander()
     {
         if (!navAgent.isOnNavMesh) return;
@@ -93,7 +88,6 @@ public class SecondaryEnemyController : MonoBehaviour
         }
     }
 
-    // Centrul grupului care il urmareste (sau al tuturor agentilor ca fallback).
     Vector3 GetThreatCenter()
     {
         EnemyGroup myGroup = blackboard.GetGroupAssignedToEnemy(transform);
@@ -113,7 +107,7 @@ public class SecondaryEnemyController : MonoBehaviour
         }
         if (count == 0)
         {
-            // fallback: toti agentii vii
+
             foreach (AgentBehaviorTree a in blackboard.allAgents)
             {
                 if (a == null) continue;
@@ -126,7 +120,6 @@ public class SecondaryEnemyController : MonoBehaviour
         return count > 0 ? sum / count : transform.position;
     }
 
-    // Fuga haotica: departe de grup, dar cu zigzag mare. Ramane pe harta.
     void SetFleeWanderTarget()
     {
         Vector3 center = GetThreatCenter();
@@ -222,8 +215,6 @@ public class SecondaryEnemyController : MonoBehaviour
             return;
         }
 
-        // Grupul asignat e gol sau mort -> vaneaza cel mai apropiat agent viu,
-        // indiferent de grup sau rol. Garanteaza ca lupta converge mereu.
         ChaseNearestLivingAgent();
     }
 

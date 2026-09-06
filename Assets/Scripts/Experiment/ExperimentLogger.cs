@@ -3,13 +3,6 @@ using System.IO;
 using System.Globalization;
 using UnityEngine;
 
-// Scrie automat un rand in CSV la finalul fiecarei rulari (victorie sau infrangere).
-// Fisierul creste la infinit (nu se sterge intre sesiuni). Foloseste Application.persistentDataPath,
-// calea standard Unity pentru date salvate - stabila, scriabila pe orice platforma.
-//
-// Analiza (medii, procentaje de victorie per combinatie) se face ULTERIOR, in Excel/Sheets
-// cu un Pivot Table: grupezi randurile dupa coloanele de tehnici si calculezi AVERAGE / COUNT.
-// Nu incercam sa calculam agregate in Unity - e mai fragil si mai putin flexibil.
 public static class ExperimentLogger
 {
     const string FileName = "experiment_results.csv";
@@ -28,7 +21,6 @@ public static class ExperimentLogger
         "distanceTraveled", "damageToEnemies", "damageToAgents", "overkillDamage"
     };
 
-    // Apelat din MetricsCollector chiar in momentul in care o rulare se incheie.
     public static void LogCompletedRun(MetricsCollector m)
     {
         var cfg = ExperimentConfig.Instance;
@@ -83,14 +75,10 @@ public static class ExperimentLogger
             Debug.Log("[ExperimentLogger] Rezultatele se salveaza in: " + FilePath);
         }
 
-        // Auto-increment seed pentru urmatoarea rulare (doar daca seed != 0,
-        // adica nu suntem in modul "mereu aleator").
         if (cfg != null && cfg.autoIncrementSeed && cfg.randomSeed != 0)
             cfg.randomSeed += 1;
     }
 
-    // Foloseste punct zecimal (invariant), NU virgula - esential pentru CSV cu delimitator virgula,
-    // altfel pe sisteme cu locale romanesc "12,34" ar sparge coloanele.
     static string Inv(float v) => v.ToString("F3", CultureInfo.InvariantCulture);
 
     static void EnsureHeader()
@@ -108,9 +96,6 @@ public static class ExperimentLogger
 
     public static string GetFilePath() => FilePath;
 
-    // Sterge fisierul CSV existent si reseteaza contorul de randuri.
-    // Folosit cand vrei un sweep complet nou, curat, fara date vechi amestecate
-    // (ex: dupa un bugfix care ar contamina comparatia daca ai pastra randurile vechi).
     public static void ClearFile()
     {
         try

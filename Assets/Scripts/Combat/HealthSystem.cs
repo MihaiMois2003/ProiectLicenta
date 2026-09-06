@@ -48,11 +48,9 @@ public class HealthSystem : MonoBehaviour
         currentHP = Mathf.Clamp(currentHP, 0, maxHP);
         OnHPChanged?.Invoke(currentHP);
 
-        // Raporteaza la metrici: damage efectiv (cat a contat) si overkill (irosit).
         float effective = Mathf.Min(damage, hpBefore);
         float overkill = Mathf.Max(0f, damage - hpBefore);
 
-        // Distingem cine a primit damage: agent (Ally) sau inamic.
         bool isAlly = gameObject.layer == LayerMask.NameToLayer("Ally");
         MetricsCollector.ReportDamage(damage, effective, overkill, isAlly);
 
@@ -60,7 +58,6 @@ public class HealthSystem : MonoBehaviour
             Die();
     }
 
-    // Regenereaza HP (folosit de Support). Nu invie mortii, nu depaseste maxHP.
     public void Heal(float amount)
     {
         if (isDead || amount <= 0) return;
@@ -73,7 +70,6 @@ public class HealthSystem : MonoBehaviour
         isDead = true;
         OnDeath?.Invoke();
 
-        // Dezactiveaza componentele
         UnityEngine.AI.NavMeshAgent nav = GetComponent<UnityEngine.AI.NavMeshAgent>();
         if (nav != null) nav.enabled = false;
 
@@ -89,7 +85,6 @@ public class HealthSystem : MonoBehaviour
         SecondaryEnemyController sec = GetComponent<SecondaryEnemyController>();
         if (sec != null) sec.enabled = false;
 
-        // Pune pe jos
         transform.rotation = Quaternion.Euler(90f, transform.rotation.eulerAngles.y, 0f);
 
         Debug.Log($"[Combat] {gameObject.name} a murit!");

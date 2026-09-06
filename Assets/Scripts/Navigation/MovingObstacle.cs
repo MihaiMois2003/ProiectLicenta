@@ -1,10 +1,6 @@
 using UnityEngine;
 using UnityEngine.AI;
 
-// Obstacol mobil care oscileaza intre doua puncte (ping-pong).
-// Necesita un NavMeshObstacle cu Carving activat ca sa modifice
-// pathfinding-ul in timp real. Layerul GameObject-ului ar trebui
-// setat pe "Obstacle" ca sa blocheze line-of-sight in PerceptionModule/CombatModule.
 [RequireComponent(typeof(NavMeshObstacle))]
 public class MovingObstacle : MonoBehaviour
 {
@@ -37,7 +33,7 @@ public class MovingObstacle : MonoBehaviour
 
     void OnEnable()
     {
-        // Plaseaza la capatul A cand reapare, ca sa fie predictibil intre rulari.
+
         transform.position = pointA;
         t = 0f;
         dir = 1;

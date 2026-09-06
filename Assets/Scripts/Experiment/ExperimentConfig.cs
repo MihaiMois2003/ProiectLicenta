@@ -1,54 +1,42 @@
-﻿using UnityEngine;
+using UnityEngine;
 
-// ─────────────────────────────────────────────────────────
-//  ENUM-URI PENTRU CELE 5 AXE DE TEHNICI
-// ─────────────────────────────────────────────────────────
-
-// PERCEPTIE — cum detecteaza agentii inamicii.
 public enum PerceptionMode
 {
-    FOV_LOS,     // con de vedere (unghi) + line-of-sight (comportamentul original)
-    Omniscient,  // vede tot, fara unghi sau LOS (baseline ideal)
-    RadiusOnly,  // 360 grade dar limitat de raza, fara restrictie de unghi
-    FOV_Memory   // FOV+LOS, dar tine minte ultima pozitie cateva secunde dupa contact
+    FOV_LOS,
+    Omniscient,
+    RadiusOnly,
+    FOV_Memory
 }
 
-// COMUNICARE — cum circula informatia despre inamic intre agenti.
 public enum CommunicationMode
 {
-    Blackboard,      // cunoastere globala instant
-    LocalBroadcast,  // doar agentii in commRange afla
-    Relay            // cine aude retransmite mai departe (propagare in valuri)
+    Blackboard,
+    LocalBroadcast,
+    Relay
 }
 
-// COLABORARE — cum se asigneaza tintele grupurilor in Faza 2.
 public enum CollaborationMode
 {
-    RandomRoundRobin, // shuffle + ciclic (original)
-    NearestEnemy,     // fiecare grup ia inamicul cel mai apropiat
-    FocusFire,        // toate grupurile pe acelasi inamic pana moare
-    Auction           // licitatie: grupul cel mai bine pozitionat ia tinta
+    RandomRoundRobin,
+    NearestEnemy,
+    FocusFire,
+    Auction
 }
 
-// PLANIFICARE — cum decid grupurile traiectoria spre inamic.
 public enum PlanningMode
 {
-    Reactive,    // merg direct spre tinta (original)
-    Flanking,    // se pozitioneaza pe arc in jurul tintei (incercuire)
-    CoverPoints  // folosesc puncte tactice / de acoperire de pe harta
+    Reactive,
+    Flanking,
+    CoverPoints
 }
 
-// DECIZIE — logica de tragere a sniperului.
 public enum DecisionMode
 {
-    FixedChance, // sniperHitChance fix (original)
-    Heuristic,   // reguli: LOS clar + tinta slabita + aliat nu e in pericol
-    ML_PPO       // decizie luata de reteaua ML-Agents (slot pregatit pentru viitor)
+    FixedChance,
+    Heuristic,
+    ML_PPO
 }
 
-// ─────────────────────────────────────────────────────────
-//  CONFIGURARE CENTRALA
-// ─────────────────────────────────────────────────────────
 public class ExperimentConfig : MonoBehaviour
 {
     public static ExperimentConfig Instance;
@@ -88,7 +76,6 @@ public class ExperimentConfig : MonoBehaviour
              "(pregatit pentru urmatoarea repetare). Ignorat daca seed = 0.")]
     public bool autoIncrementSeed = true;
 
-    // ── Persistenta peste reload (resetul rularii) ──
     static bool hasSaved = false;
     static PerceptionMode sPerception;
     static CommunicationMode sComm;
@@ -115,7 +102,6 @@ public class ExperimentConfig : MonoBehaviour
             Random.InitState(randomSeed);
     }
 
-    // Salveaza alegerile curente in campuri statice, ca sa supravietuiasca LoadScene.
     public void SaveForReload()
     {
         hasSaved = true;

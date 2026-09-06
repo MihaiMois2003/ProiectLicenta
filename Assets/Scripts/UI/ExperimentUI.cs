@@ -1,18 +1,11 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.SceneManagement;
 
-// Panou de control simplu si ordonat (OnGUI).
-//  - panou lateral stanga cu SCROLL (incape pe orice monitor)
-//  - dropdown-uri pentru fiecare axa de tehnica
-//  - sectiune metrici aliniata
-//  - sobru: gri inchis + text alb, fara culori inutile
 public class ExperimentUI : MonoBehaviour
 {
     [Header("Layout")]
     public int panelWidth = 300;
 
-    // Latimea totala (in pixeli) rezervata panoului, citita de SceneCameraLayout
-    // ca sa stie unde incepe zona libera pentru scena.
     public static int ReservedPixelWidth = 320;
     public int fontSize = 13;
 
@@ -29,7 +22,7 @@ public class ExperimentUI : MonoBehaviour
     void BuildStyles()
     {
         texPanel = Tex(new Color(0.11f, 0.11f, 0.12f, 0.97f));
-        texSection = Tex(new Color(0.16f, 0.14f, 0.08f, 1f)); // nuanta calda, distincta de restul panoului
+        texSection = Tex(new Color(0.16f, 0.14f, 0.08f, 1f));
         texBtn = Tex(new Color(0.20f, 0.20f, 0.22f, 1f));
         texBtnSel = Tex(new Color(0.33f, 0.33f, 0.36f, 1f));
 
@@ -72,7 +65,7 @@ public class ExperimentUI : MonoBehaviour
 
     void Awake()
     {
-        // panelWidth + padding-ul din stanga (8px) + o mica margine de respiratie.
+
         ReservedPixelWidth = panelWidth + 20 + 16;
     }
 
@@ -81,8 +74,6 @@ public class ExperimentUI : MonoBehaviour
         if (!stylesReady) BuildStyles();
         if (bb_ref == null) bb_ref = TacticalBlackboard.Instance;
 
-        // Fara scalare prin matrice (producea blur pe text/butoane). Latimea e fixa,
-        // inaltimea se adapteaza direct la ecran; daca nu incape, scroll-ul preia.
         float w = panelWidth + 20;
         GUILayout.BeginArea(new Rect(8, 8, w, Screen.height - 16), panelBg);
         scroll = GUILayout.BeginScrollView(scroll);
@@ -91,7 +82,6 @@ public class ExperimentUI : MonoBehaviour
         var m = MetricsCollector.Instance;
         var obs = ObstacleManager.Instance;
 
-        // ── START / RESET ──
         if (bb_ref != null && !bb_ref.simulationStarted)
         {
             if (GUILayout.Button("START", btn, GUILayout.Height(32)))
@@ -107,7 +97,6 @@ public class ExperimentUI : MonoBehaviour
             }
         }
 
-        // ── AUTOMATED STUDY ── just the button, plain, like START
         GUILayout.Space(8);
 
         if (AutoStudyRunner.IsActive)
@@ -121,7 +110,6 @@ public class ExperimentUI : MonoBehaviour
                 AutoStudyRunner.BeginStudy();
         }
 
-        // ── TECHNIQUES ──
         GUILayout.Space(8);
         GUILayout.Label("TECHNIQUES", header);
 
@@ -160,7 +148,6 @@ public class ExperimentUI : MonoBehaviour
         }
         else GUILayout.Label("(ExperimentConfig missing)", label);
 
-        // ── VIEW ── (affects ONLY the scene camera, panel stays unchanged)
         GUILayout.Space(8);
         GUILayout.Label("VIEW", header);
         var camLayout = SceneCameraLayout.Instance;
@@ -173,7 +160,6 @@ public class ExperimentUI : MonoBehaviour
         }
         else GUILayout.Label("(SceneCameraLayout missing from Main Camera)", label);
 
-        // ── OBSTACLES ──
         GUILayout.Space(8);
         GUILayout.Label("OBSTACLES", header);
         if (obs != null)
@@ -182,7 +168,6 @@ public class ExperimentUI : MonoBehaviour
             if (ToggleRow("Mobile", obs.MobileActive) != obs.MobileActive) obs.ToggleMobile();
         }
 
-        // ── METRICS ──
         GUILayout.Space(10);
         GUILayout.Label("METRICS", header);
 

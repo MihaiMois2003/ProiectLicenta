@@ -1,17 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
 
-// Gestioneaza obstacolele din scena: 3 fixe + 2 mobile.
-// Permite activarea/dezactivarea lor live (din UI) ca sa poti masura
-// "cu obstacole" vs "fara obstacole" fara sa repornesti scena.
-//
-// SETUP IN EDITOR:
-//  - Pune fiecare obstacol (fix sau mobil) ca GameObject in scena, cu pozitia
-//    decisa de tine in Inspector.
-//  - Fixed obstacles: doar mesh + collider + (optional) NavMeshObstacle cu Carving.
-//  - Mobile obstacles: au in plus scriptul MovingObstacle.
-//  - Layerul fiecaruia setat pe "Obstacle" ca sa blocheze line-of-sight.
-//  - Trage referintele in listele de mai jos.
 public class ObstacleManager : MonoBehaviour
 {
     public static ObstacleManager Instance;
